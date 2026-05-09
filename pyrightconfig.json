@@ -1,0 +1,17 @@
+{
+  "exclude": [
+    ".venv"
+  ],
+  "include": [
+    "."
+  ],
+  "executionEnvironments": [
+    {
+      "root": "app",
+      "extraPaths": [
+        "."
+      ]
+    }
+  ],
+  "reportMissingImports": "error"
+}
