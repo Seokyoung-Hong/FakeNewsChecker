@@ -1,0 +1,10 @@
+- main [ref=e2]:
+  - heading "분석 준비 완료" [level=1] [ref=e3]
+  - paragraph [ref=e4]:
+    - text: "분석 ID:"
+    - strong [ref=e5]: 8cbcaa3f-6e9d-5678-975f-a391801c2197
+  - paragraph [ref=e6]: 제출한 분석 결과가 저장되었고, 브라우저 리다이렉트가 정상적으로 완료되었습니다.
+  - paragraph [ref=e7]: 상세 결과 화면은 다음 작업에서 연결됩니다.
+  - paragraph [ref=e8]:
+    - link "다른 URL 다시 제출하기" [ref=e9] [cursor=pointer]:
+      - /url: /

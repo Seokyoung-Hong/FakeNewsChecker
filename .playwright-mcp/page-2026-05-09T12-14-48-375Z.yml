@@ -1,0 +1,24 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - region "검증하고 싶은 뉴스·게시글 URL을 입력하세요." [ref=e3]:
+      - paragraph [ref=e4]: Fake News Verification
+      - heading "검증하고 싶은 뉴스·게시글 URL을 입력하세요." [level=1] [ref=e5]
+      - paragraph [ref=e6]: 뉴스 기사, SNS 게시글, 블로그 링크를 붙여 넣으면 이후 단계에서 신뢰도 리포트를 확인할 수 있습니다.
+      - generic [ref=e7]:
+        - generic [ref=e8]: 검증할 URL
+        - textbox "검증할 URL" [ref=e9]:
+          - /placeholder: https://example.com/news-story
+          - text: https://example.com/news/demo
+        - button "분석 준비 중" [disabled] [ref=e13]
+        - alert [ref=e11]
+      - paragraph [ref=e12]: "예시: 언론 기사 링크, 공개 SNS 게시물 링크, 블로그 포스트 링크"
+  - region "입력한 URL을 분석 중입니다." [ref=e14]:
+    - generic [ref=e15]:
+      - paragraph [ref=e17]: Analysis Preview
+      - heading "입력한 URL을 분석 중입니다." [level=2] [ref=e18]
+      - list [ref=e19]:
+        - listitem [ref=e20]: 본문 수집 중
+        - listitem [ref=e21]: 출처 확인 중
+        - listitem [ref=e22]: AI 분석 중
+        - listitem [ref=e23]: 리포트 생성 중
+      - paragraph [ref=e24]: 현재 화면은 이후 제출 흐름을 위한 클라이언트 미리보기입니다.

@@ -1,0 +1,86 @@
+{
+  "active_plan": "C:\\Users\\tjrdu\\Desktop\\Coding\\mutsa\\fakenews\\.sisyphus\\plans\\ui-backend-skeleton.md",
+  "started_at": "2026-05-09T11:23:48.050Z",
+  "session_ids": [
+    "ses_1f39bc911ffeF8OE5D60wNIhMU"
+  ],
+  "session_origins": {
+    "ses_1f39bc911ffeF8OE5D60wNIhMU": "direct"
+  },
+  "plan_name": "ui-backend-skeleton",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Bootstrap the FastAPI application package and dependency wiring",
+      "session_id": "ses_1f3840943ffewQR4AvUkGWcv53",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-05-09T11:26:42.365Z"
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "Add Docker runtime files and lock the single-container execution model",
+      "session_id": "ses_1f38102caffeeVipMx6OBJeCP5",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-low",
+      "updated_at": "2026-05-09T11:29:24.284Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "Define shared DTOs, in-memory repository, and future-facing persistence skeletons",
+      "session_id": "ses_1f37e3d00ffeF7Iq3Sh0ltESNy",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-low",
+      "updated_at": "2026-05-09T11:33:48.775Z"
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Build the page router and base HTML shell for the submission experience",
+      "session_id": "ses_1f3578001ffeJ73KIRskeVrhBT",
+      "agent": "Sisyphus-Junior",
+      "category": "",
+      "updated_at": "2026-05-09T12:17:21.366Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Implement the analysis submission route, validation behavior, and redirect contract",
+      "session_id": "ses_1f31aba14ffeSlmD1WwMSYeq4P",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-05-09T13:23:00.447Z"
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Render the result page, score bands, and original content viewer from stored results",
+      "session_id": "ses_1f30f71e6ffe4qWn1mxNekkWfI",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-05-09T13:34:01.110Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "Finish operational docs, diagnostics cleanup, and Compose-first manual verification path",
+      "session_id": "ses_1f30cf36effejJVVsWun9V9tK3",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-05-09T13:41:47.526Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "Plan Compliance Audit — oracle",
+      "session_id": "ses_1f2ff52a8ffepIDpZdw8X9swJ8",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-05-09T13:53:58.722Z"
+    }
+  }
+}

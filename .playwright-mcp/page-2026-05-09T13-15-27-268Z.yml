@@ -1,0 +1,13 @@
+- main [ref=e2]:
+  - region "검증하고 싶은 뉴스·게시글 URL을 입력하세요." [ref=e3]:
+    - paragraph [ref=e4]: Fake News Verification
+    - heading "검증하고 싶은 뉴스·게시글 URL을 입력하세요." [level=1] [ref=e5]
+    - paragraph [ref=e6]: 뉴스 기사, SNS 게시글, 블로그 링크를 붙여 넣으면 이후 단계에서 신뢰도 리포트를 확인할 수 있습니다.
+    - generic [ref=e7]:
+      - generic [ref=e8]: 검증할 URL
+      - textbox "검증할 URL" [ref=e9]:
+        - /placeholder: https://example.com/news-story
+        - text: not-a-url
+      - button "검증하기" [ref=e10] [cursor=pointer]
+      - alert [ref=e11]: 올바른 URL 형식으로 입력해 주세요.
+    - paragraph [ref=e12]: "예시: 언론 기사 링크, 공개 SNS 게시물 링크, 블로그 포스트 링크"

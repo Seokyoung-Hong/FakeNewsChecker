@@ -1,0 +1,55 @@
+- main [ref=e2]:
+  - region "검증 결과" [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - paragraph [ref=e6]: Analysis Result
+        - heading "검증 결과" [level=1] [ref=e7]
+      - generic "신뢰도 점수 69점" [ref=e8]:
+        - strong [ref=e9]: "69"
+        - text: / 100
+    - generic "분석 대상 정보" [ref=e10]:
+      - paragraph [ref=e11]: 주의 필요
+      - heading "[stub] example.com · news_demo" [level=2] [ref=e12]
+      - paragraph [ref=e13]: https://example.com/news/demo
+    - region "요약 리포트" [ref=e14]:
+      - generic [ref=e15]:
+        - heading "요약 리포트" [level=3] [ref=e16]
+        - link "다른 URL 검증하기" [ref=e17] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=e18]: 총점은 69점이며 판정은 '주의 필요'입니다. 가장 낮은 항목은 'source_reliability'(50점), 가장 높은 항목은 'multimodal_risk'(88점)입니다.
+    - region "세부 분석 결과" [ref=e19]:
+      - heading "세부 분석 결과" [level=3] [ref=e20]
+      - generic [ref=e21]:
+        - article "출처 신뢰도" [ref=e22]:
+          - generic [ref=e23]:
+            - heading "출처 신뢰도" [level=4] [ref=e24]
+            - generic [ref=e25]: 50점
+          - paragraph [ref=e26]: 출처 신뢰도는 도메인 패턴과 정적 신호를 기반으로 50점으로 계산됩니다.
+          - paragraph [ref=e27]: "위험 신호: high"
+        - article "주장 일관성" [ref=e28]:
+          - generic [ref=e29]:
+            - heading "주장 일관성" [level=4] [ref=e30]
+            - generic [ref=e31]: 65점
+          - paragraph [ref=e32]: 핵심 주장의 근거 신호가 0건 확인되어 65점입니다.
+          - paragraph [ref=e33]: "위험 신호: medium"
+        - article "근거 품질" [ref=e34]:
+          - generic [ref=e35]:
+            - heading "근거 품질" [level=4] [ref=e36]
+            - generic [ref=e37]: 69점
+          - paragraph [ref=e38]: 본문 길이와 부가 메타데이터를 기반으로 근거 품질 점수를 산출했습니다.
+          - paragraph [ref=e39]: "위험 신호: medium"
+        - article "선동 표현 위험도" [ref=e40]:
+          - generic [ref=e41]:
+            - heading "선동 표현 위험도" [level=4] [ref=e42]
+            - generic [ref=e43]: 88점
+          - paragraph [ref=e44]: 감정·선동 표현 지표를 반영해 88점으로 평가했습니다.
+          - paragraph [ref=e45]: "위험 신호: low"
+        - article "멀티모달 조작 위험도" [ref=e46]:
+          - generic [ref=e47]:
+            - heading "멀티모달 조작 위험도" [level=4] [ref=e48]
+            - generic [ref=e49]: 88점
+          - paragraph [ref=e50]: 수집된 이미지 수(2개) 기준으로 조작 가능성 점수를 산정했습니다.
+          - paragraph [ref=e51]: "위험 신호: low"
+    - region "원문 뷰어" [ref=e52]:
+      - heading "원문 뷰어" [level=3] [ref=e53]
+      - generic [ref=e55]: "이 페이지는 실제 네트워크 요청 없이 생성된 오프라인 스텁 텍스트입니다. 요청 URL: https://example.com/news/demo. 요약 신호: host=example.com, path_depth=2 등 안정적인 입력 신호를 기반으로 추출됩니다."

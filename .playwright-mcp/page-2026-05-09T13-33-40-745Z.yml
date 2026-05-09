@@ -1,0 +1,8 @@
+- main [ref=e2]:
+  - region "분석 결과를 찾을 수 없습니다." [ref=e3]:
+    - paragraph [ref=e4]: Analysis Error
+    - heading "분석 결과를 찾을 수 없습니다." [level=1] [ref=e5]
+    - paragraph [ref=e6]: 요청한 분석 ID가 없거나 저장소가 초기화되었습니다. 홈으로 돌아가 다시 URL을 제출해 주세요.
+    - paragraph [ref=e7]:
+      - link "홈으로 돌아가 다시 시도하기" [ref=e8] [cursor=pointer]:
+        - /url: /
