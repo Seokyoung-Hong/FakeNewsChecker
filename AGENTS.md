@@ -1,101 +1,126 @@
-# PROJECT KNOWLEDGE BASE
+# 프로젝트 지식 베이스
 
-**Generated:** 2026-05-09
-**Commit:** uncommitted
-**Branch:** master
+**생성일:** 2026-05-09  
+**커밋 상태:** uncommitted  
+**브랜치:** main
 
-## OVERVIEW
-Prototype-stage FastAPI fake-news URL verification service. Current repo is spec-first: `FunctionalSpec.md` defines the target product, while implementation is still a minimal Python scaffold.
+## 개요
 
-## PROJECT DEFINITION
-- Product: AI-based web service that analyzes a news/SNS/blog URL and returns a 100-point trust report with rationale.
-- Scope: URL input, content collection, AI analysis, scoring, report generation, result view, original content viewer.
-- Exclusions: login, signup, admin, payments, complex async queues, direct OCR implementation.
-- Required target runtime: future runnable code should be operated through Docker Compose; the current repo does not yet implement this.
+이 저장소는 뉴스 기사·SNS 게시글·블로그 URL을 입력받아 신뢰도 스타일의 결과 페이지를 보여주는 FastAPI 프로토타입입니다. 현재 구현은 이미 실행 가능한 Docker Compose 런타임과 `app/` 패키지를 포함하고 있으며, 분석 로직은 외부 네트워크 없이 동작하는 결정론적 오프라인 스텁입니다.
 
-## CURRENT STATE
-- Implemented runtime today: `main.py` only; prints a placeholder message.
-- Dependency state: `pyproject.toml` declares `fastapi` only.
-- Missing from repo today: `app/` package, `database.py`, `models.py`, `schemas.py`, routers, services, agents, analyzers, templates, static assets, Docker Compose files, and Docker build files.
-- README is empty; this file is the main operating guide until real app structure exists.
+## 프로젝트 정의
 
-## STRUCTURE (SELECTIVE ROOT VIEW)
+- 제품 목표: URL 기반 검증 경험과 100점 기준 신뢰도 리포트 제공
+- 현재 구현 범위: 홈 화면, URL 제출, 결정론적 분석 실행, 결과 페이지 렌더링, 오류 화면 렌더링
+- 제외 범위: 로그인, 회원가입, 관리자 기능, 결제, 복잡한 비동기 큐, 실제 OCR/멀티모달 판별, 실서비스 수준의 외부 AI 연동
+- 주 실행 계약: Docker Compose로 웹 앱 실행
+
+## 현재 상태
+
+- `app/` 패키지가 존재하며 FastAPI 앱이 구현되어 있습니다.
+- 현재 웹 엔트리포인트는 `app.main:app`입니다.
+- `docker-compose.yml`과 `Dockerfile`이 존재하며 실제로 Docker 런타임이 구성되어 있습니다.
+- 루트 `README.md`는 비어 있지 않으며 현재 프로토타입 설명 문서입니다.
+- 루트 `main.py`는 단순 플레이스홀더 출력용 파일입니다.
+- 결과 저장소는 `InMemoryAnalysisResultRepository`이며 영속 저장이 아닙니다.
+- `app/database.py`, `app/models.py`, `app/agents/external_agent_client.py`는 미래 구현을 위한 플레이스홀더/시드 단계입니다.
+
+## 현재 동작하는 요청 흐름
+
+```text
+GET /
+→ POST /analysis
+→ DeterministicAnalysisService.run()
+→ DeterministicCrawlerService.collect()
+→ Analyzer + LocalAgent 기준별 분석
+→ DeterministicScoringService.score()
+→ DeterministicReportService.build_report()
+→ InMemoryAnalysisResultRepository.create()
+→ 303 redirect to GET /analysis/{analysis_id}
+```
+
+## 현재 루트 구조
+
 ```text
 ./
-├── FunctionalSpec.md   # source of truth for target product and architecture
-├── main.py             # only implemented execution path today
-├── pyproject.toml      # Python/FastAPI dependency metadata
-├── uv.lock             # uv lockfile
-├── README.md           # present but empty
-└── .python-version     # local Python baseline (3.12)
-```
-
-## TARGET STRUCTURE (FROM SPEC)
-```text
-app/
+├── app/
+│   ├── agents/
+│   ├── analyzers/
+│   ├── routers/
+│   ├── services/
+│   ├── static/
+│   ├── templates/
+│   ├── database.py
+│   ├── dependencies.py
+│   ├── main.py
+│   ├── models.py
+│   ├── repositories.py
+│   └── schemas.py
+├── docs/
+│   └── IMPLEMENTATION_GUIDE_ANALYSIS_PYTHON.md
+├── CONTRIBUTING.md
+├── FunctionalSpec.md
+├── README.md
+├── docker-compose.yml
+├── Dockerfile
 ├── main.py
-├── database.py
-├── models.py
-├── schemas.py
-├── routers/
-│   ├── page.py
-│   └── analysis.py
-├── services/
-│   ├── crawler_service.py
-│   ├── analysis_service.py
-│   ├── scoring_service.py
-│   └── report_service.py
-├── agents/
-├── analyzers/
-├── templates/
-└── static/
+├── pyproject.toml
+└── uv.lock
 ```
 
-## WHERE TO LOOK
-| Task | Location | Notes |
-|------|----------|-------|
-| Define product scope | `FunctionalSpec.md` | Canonical source for goals, screens, API, module roles |
-| Check current runnable code | `main.py` | Placeholder only; not a FastAPI app |
-| Check dependency/runtime baseline | `pyproject.toml`, `.python-version`, `uv.lock` | Python 3.12 local baseline, FastAPI dependency present |
-| Confirm prototype exclusions | `FunctionalSpec.md` sections 14-15 | Prevent scope creep |
-| Reconstruct intended module map | `FunctionalSpec.md` sections 8-13 | Planned directories, APIs, DB schema, analyzers |
+## 어디를 봐야 하는가
 
-## CODE MAP
-| Symbol | Type | Location | Refs | Role |
-|--------|------|----------|------|------|
-| `main` | function | `main.py` | 1 local call | Placeholder CLI entrypoint |
+| 작업 목적 | 위치 | 비고 |
+|---|---|---|
+| 현재 실행 방식 이해 | `docker-compose.yml`, `Dockerfile`, `app/main.py` | 실제 런타임 기준 |
+| 홈/결과 화면 흐름 확인 | `app/routers/page.py`, `app/routers/analysis.py`, `app/templates/` | 서버 렌더링 기반 |
+| 현재 분석 파이프라인 확인 | `app/services/`, `app/analyzers/`, `app/agents/local_agent.py` | 전부 오프라인 결정론적 스텁 |
+| 데이터 계약 확인 | `app/schemas.py` | 현재 파이프라인의 핵심 DTO |
+| 저장 방식 확인 | `app/repositories.py` | 메모리 저장소 |
+| 장기 제품 목표 확인 | `FunctionalSpec.md` | 현재 구현보다 넓은 목표 문서 |
+| 기여 절차 확인 | `CONTRIBUTING.md` | 온보딩/검증 기준 |
+| 실제 기능 확장 지침 확인 | `docs/IMPLEMENTATION_GUIDE_ANALYSIS_PYTHON.md` | 구현 대상별 상세 가이드 |
 
-## CONVENTIONS
-- Python project, not TypeScript/Node.
-- Dependency management is uv-oriented (`uv.lock` present).
-- Preferred local Python version is 3.12; declared support range is `>=3.11,<3.13`.
-- Architecture target is a FastAPI monolith with clear internal module boundaries.
-- Frontend is server-rendered HTML/CSS/JS via Jinja2; SPA frameworks are not required for this prototype.
-- All future execution paths should be designed to run via Docker Compose, even though the repo does not satisfy that requirement yet.
+## 코드 맵
 
-## ANTI-PATTERNS (THIS PROJECT)
-- Do not add login, signup, admin pages, payments, or other non-core product features in prototype phase.
-- Do not introduce a complex async queue system for the prototype; keep request flow simple.
-- Do not jump to React/Vue SPA architecture unless the product direction changes.
-- Do not couple AI integration directly into page/router code; keep agent integration separable.
-- Do not treat spec-only paths as implemented code; verify files exist before building on them.
-- Do not add non-Docker execution as the primary target workflow; Docker Compose is the required runtime contract.
+| 심볼/구성 | 종류 | 위치 | 역할 |
+|---|---|---|---|
+| `app` | FastAPI 인스턴스 | `app/main.py` | 정적 파일 마운트 및 라우터 등록 |
+| `create_analysis` | 라우트 핸들러 | `app/routers/analysis.py` | URL 제출 처리, 분석 실행, 리다이렉트 |
+| `analysis_result_page` | 라우트 핸들러 | `app/routers/analysis.py` | 저장된 결과 조회 및 렌더링 |
+| `DeterministicAnalysisService` | 서비스 | `app/services/analysis_service.py` | 전체 파이프라인 오케스트레이션 |
+| `DeterministicCrawlerService` | 서비스 | `app/services/crawler_service.py` | URL 기반 스텁 수집 결과 생성 |
+| `LocalAgent` | 에이전트 | `app/agents/local_agent.py` | 기준별 정적 점수 계산 |
+| `DeterministicScoringService` | 서비스 | `app/services/scoring_service.py` | 가중 평균 총점 계산 |
+| `DeterministicReportService` | 서비스 | `app/services/report_service.py` | 결과 페이지용 리포트 조립 |
+| `InMemoryAnalysisResultRepository` | 저장소 | `app/repositories.py` | 메모리 저장/조회 |
 
-## UNIQUE STYLES
-- Spec-first repository: document distinguishes sharply between current implementation and intended architecture.
-- Score/report language is user-facing and evidence-oriented, not binary true/false classification.
-- Trust output is a weighted 100-point model with sub-scores for source reliability, claim consistency, evidence quality, expression risk, and multimodal risk.
+## 규칙과 관례
 
-## COMMANDS
+- Python 전용 저장소입니다.
+- 현재 의존성은 `fastapi`, `jinja2`, `python-multipart`, `uvicorn`이 선언되어 있습니다.
+- 로컬 Python 지원 범위는 `>=3.11,<3.13`입니다.
+- 현재 UI는 Jinja2 서버 렌더링 기반이며 SPA 전환은 전제되어 있지 않습니다.
+- 실제 기능이 추가되더라도 라우터는 얇게 유지하고 서비스/에이전트/분석기 계층에 책임을 배치하는 방향이 현재 구조와 맞습니다.
+- 현재 프로토타입의 중요한 특성은 **오프라인**, **결정론적**, **동기식**, **메모리 저장**입니다.
+
+## 주의할 안티패턴
+
+- 현재 구현이 없는 외부 AI 호출을 이미 존재하는 것처럼 문서화하거나 가정하지 말 것
+- `root main.py`를 실제 웹 서버 엔트리포인트로 취급하지 말 것
+- 메모리 저장소를 영속 저장처럼 다루지 말 것
+- 비동기 큐나 백그라운드 워커를 현재 구현으로 오해하지 말 것
+- `FunctionalSpec.md`의 장기 목표를 곧바로 현재 상태로 서술하지 말 것
+- 라우터에 분석 로직을 직접 넣어 계층 분리를 무너뜨리지 말 것
+
+## 현재 실행 명령
+
 ```bash
-# currently runnable
-python main.py
-
-# required future workflow (not implemented yet)
 docker compose up --build
 ```
 
-## NOTES
-- `docker compose up --build` is a project requirement from the user, not a capability the current repo already implements.
-- There is no committed application code yet; repository is effectively an uncommitted scaffold plus specification.
-- If implementation starts, create `app/` and Compose files before expanding feature modules so runtime shape stays consistent.
+## 참고 메모
+
+- `GET /analysis/{analysis_id}`는 저장소가 초기화되었거나 ID가 없으면 404 오류 화면을 렌더링합니다.
+- 홈 화면의 로딩 오버레이는 `app/static/js/main.js`에서 제어하는 브라우저 측 연출이며, 서버의 별도 진행 상태 추적은 없습니다.
+- 실제 데이터베이스 도입과 외부 분석기 연동은 아직 구현되지 않았고, 관련 자리만 준비되어 있습니다.
