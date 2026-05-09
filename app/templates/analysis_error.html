@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>분석 처리 오류</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero-card error-card" aria-labelledby="error-title">
+        <p class="eyebrow">Analysis Error</p>
+        <h1 id="error-title">{{ error_title | default('분석을 완료하지 못했습니다.', true) }}</h1>
+        <p class="error-summary">
+          {{ error_message | default('입력한 URL 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.', true) }}
+        </p>
+        {% if submitted_url %}
+          <p class="helper-copy">마지막 제출 URL: {{ submitted_url }}</p>
+        {% endif %}
+        <p class="retry-actions">
+          <a class="retry-link" href="{{ retry_path | default('/', true) }}">홈으로 돌아가 다시 시도하기</a>
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
