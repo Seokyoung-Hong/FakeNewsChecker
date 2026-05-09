@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>가짜뉴스 URL 검증 서비스</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero-card" aria-labelledby="page-title">
+        <p class="eyebrow">Fake News Verification</p>
+        <h1 id="page-title">검증하고 싶은 뉴스·게시글 URL을 입력하세요.</h1>
+        <p class="intro-copy">
+          뉴스 기사, SNS 게시글, 블로그 링크를 붙여 넣으면 이후 단계에서 신뢰도
+          리포트를 확인할 수 있습니다.
+        </p>
+
+        <form class="url-form" id="analysis-form" action="/analysis" method="post" novalidate>
+          <label class="sr-only" for="target-url">검증할 URL</label>
+          <input
+            id="target-url"
+            name="url"
+            type="url"
+            inputmode="url"
+            placeholder="https://example.com/news-story"
+            autocomplete="url"
+            value="{{ submitted_url | default('', true) }}"
+            required
+          />
+          <button id="submit-button" type="submit">검증하기</button>
+          <p class="form-error{% if form_error %} is-visible{% endif %}" id="form-error" role="alert" aria-live="polite">{{ form_error | default('', true) }}</p>
+        </form>
+
+        <p class="helper-copy">
+          예시: 언론 기사 링크, 공개 SNS 게시물 링크, 블로그 포스트 링크
+        </p>
+      </section>
+    </main>
+
+    {% include 'loading.html' %}
+
+    <script src="{{ url_for('static', path='js/main.js') }}" defer></script>
+  </body>
+</html>
