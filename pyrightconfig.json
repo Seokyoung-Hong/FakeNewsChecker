@@ -5,9 +5,11 @@
   "include": [
     "."
   ],
+  "venvPath": ".",
+  "venv": ".venv",
   "executionEnvironments": [
     {
-      "root": "app",
+      "root": ".",
       "extraPaths": [
         "."
       ]
