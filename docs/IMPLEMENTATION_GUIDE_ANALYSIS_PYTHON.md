@@ -1,180 +1,218 @@
-# Python API 연동 입문 가이드
+# Python 뉴스 분석 구현 가이드
 
-이 문서는 **코딩을 전문적으로 해 본 적이 없고, 이제 처음으로 API 연동을 배워 보려는 사람**을 위한 문서입니다.
+이 문서는 **아주 단순하게** 설명합니다.
 
-이 문서에서는 복잡한 프로젝트 구조 설명을 하지 않습니다.
+복잡한 프로젝트 구조는 신경 쓰지 않아도 됩니다.
 
-가장 중요한 메시지는 하나입니다.
+핵심은 이것입니다.
 
-> **원하는 새 폴더를 만들고, 그 안에 독립적인 Python 파일을 하나 만든 뒤, 거기서 API 호출을 먼저 해 보세요.**
+> **`downloaded_news` 폴더 안의 세부 폴더 하나만 읽어서 분석 코드를 만들면 됩니다.**
 
-## 1. 왜 이렇게 시작하나요?
-
-처음 배우는 사람에게는 아래가 더 중요합니다.
-
-- API 요청 보내기
-- 응답 받기
-- JSON 보기
-- 필요한 값 꺼내기
-- 에러 확인하기
-
-반대로 처음부터 아래를 신경 쓰면 너무 어렵습니다.
-
-- 프로젝트 구조
-- 파일을 어디에 넣어야 하는지
-- 어떤 계층을 지켜야 하는지
-- 기존 코드와 어떻게 예쁘게 합칠지
-
-그래서 첫 단계는 **독립 파일에서 연습**하는 것이 가장 좋습니다.
-
-## 2. 어떻게 시작하면 되나요?
-
-예를 들어 저장소 안에 아무 폴더나 새로 만들어도 됩니다.
+예를 들면 이런 식입니다.
 
 ```text
-practice/
-└── my_first_api.py
+downloaded_news/
+└── 5c40cadb-1bbc-5e30-a62d-93a52a811ad5/
+    ├── article.txt
+    ├── metadata.json
+    ├── structured_data.json
+    ├── image_urls.json
+    └── images/
+```
+
+여기서 중요한 것은 **세부 폴더 이름**입니다.
+
+이 이름만 알면 됩니다.
+
+- CLI에서 받을 수도 있고
+- 함수 인자로 받을 수도 있고
+- 다른 코드에서 문자열로 넘겨줄 수도 있습니다
+
+즉, 아래 둘 다 괜찮습니다.
+
+```bash
+python analyze_news.py 5c40cadb-1bbc-5e30-a62d-93a52a811ad5
 ```
 
 또는
 
-```text
-beginner/
-└── test_call.py
+```python
+analyze_news("5c40cadb-1bbc-5e30-a62d-93a52a811ad5")
 ```
 
-또는
+---
 
-```text
-temp/
-└── try_api.py
+## 1. 무엇을 읽으면 되나요?
+
+분석 코드는 우선 아래 파일만 보면 됩니다.
+
+### 1) `article.txt`
+- 가장 중요한 파일입니다.
+- 뉴스 본문 텍스트가 들어 있습니다.
+- 보통 이 파일을 중심으로 분석합니다.
+
+### 2) `structured_data.json`
+- 구조화된 제목, 본문, 이미지 정보가 들어 있습니다.
+- 이미지 관련 정보는 이 파일을 기준으로 보면 됩니다.
+
+### 3) `metadata.json`
+- 수집 시각, 원본 URL, 기타 메타데이터가 들어 있습니다.
+- 꼭 처음부터 쓰지 않아도 됩니다.
+
+### 4) `image_urls.json`
+- 이미지 URL 목록입니다.
+- 필요하면 참고하면 됩니다.
+
+### 5) `images/`
+- 실제로 저장된 이미지 파일 폴더입니다.
+- 이미지 분석이 필요할 때만 보면 됩니다.
+
+---
+
+## 2. 가장 쉬운 분석 방식
+
+처음에는 이렇게 생각하면 됩니다.
+
+1. 폴더 이름 하나를 받는다.
+2. `downloaded_news/<폴더이름>` 경로를 만든다.
+3. `article.txt`를 읽는다.
+4. 필요하면 `structured_data.json`도 읽는다.
+5. 그 내용을 바탕으로 분석 결과를 만든다.
+
+이것만 해도 충분합니다.
+
+---
+
+## 3. 아주 단순한 예시 코드
+
+아래 예시는 **폴더 이름 하나만 받아서** 본문과 구조화 데이터를 읽는 가장 쉬운 형태입니다.
+
+```python
+from pathlib import Path
+import json
+import sys
+
+
+def analyze_news(folder_name: str) -> dict:
+    base_dir = Path("downloaded_news") / folder_name
+
+    article_text = (base_dir / "article.txt").read_text(encoding="utf-8")
+    structured_data = json.loads(
+        (base_dir / "structured_data.json").read_text(encoding="utf-8")
+    )
+
+    title = structured_data.get("title", "")
+    image_urls = structured_data.get("image_urls", [])
+
+    result = {
+        "folder_name": folder_name,
+        "title": title,
+        "text_length": len(article_text),
+        "image_count": len(image_urls),
+        "summary": article_text[:200],
+    }
+
+    return result
+
+
+if __name__ == "__main__":
+    folder_name = sys.argv[1]
+    result = analyze_news(folder_name)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 ```
 
-전부 괜찮습니다.
+이 코드는 아주 단순합니다.
 
-## 3. 첫 파일에서 해 볼 것
+- `downloaded_news/<폴더이름>`으로 들어가고
+- `article.txt`를 읽고
+- `structured_data.json`을 읽고
+- 간단한 결과를 출력합니다
 
-처음 파일에서는 아래 정도만 하면 충분합니다.
+---
 
-1. API 주소를 적는다.
-2. 요청을 보낸다.
-3. 응답 결과를 출력한다.
-4. JSON이면 JSON을 읽는다.
-5. 필요한 값만 꺼내서 출력한다.
+## 4. 함수로만 써도 됩니다
 
-예를 들어 이런 식의 연습을 생각하면 됩니다.
+CLI가 싫으면 함수만 써도 됩니다.
 
-- 상태 코드 출력하기
-- 응답 본문 출력하기
-- `title`, `summary`, `result` 같은 필드 꺼내기
-- 실패했을 때 에러 메시지 출력하기
+```python
+from pathlib import Path
+import json
 
-## 4. 처음 목표는 “완성”이 아니라 “확인”입니다
 
-처음에는 멋지게 만드는 것이 목표가 아닙니다.
+def analyze_news(folder_name: str) -> dict:
+    base_dir = Path("downloaded_news") / folder_name
 
-아래를 확인하는 것이 목표입니다.
+    article_text = (base_dir / "article.txt").read_text(encoding="utf-8")
+    structured_data = json.loads(
+        (base_dir / "structured_data.json").read_text(encoding="utf-8")
+    )
 
-- 요청이 실제로 나가는지
-- 응답이 실제로 오는지
-- JSON 파싱이 되는지
-- 내가 원하는 값을 꺼낼 수 있는지
-- 에러가 났을 때 왜 그런지 알 수 있는지
+    return {
+        "title": structured_data.get("title", ""),
+        "content": article_text,
+        "images": structured_data.get("image_urls", []),
+    }
 
-이 다섯 가지가 되면 아주 잘 시작한 것입니다.
 
-## 5. 응답을 저장해 보세요
+result = analyze_news("5c40cadb-1bbc-5e30-a62d-93a52a811ad5")
+print(result["title"])
+```
 
-응답을 그냥 `print()`만 하지 말고 파일로 저장해 보는 것도 좋습니다.
+---
 
-예를 들면:
+## 5. 처음에는 무엇을 분석하면 되나요?
 
-- `result.json`으로 저장
-- `result.txt`로 저장
-- 필요한 값만 뽑아서 새 파일에 저장
+처음부터 어렵게 하지 말고 아래 정도만 해 보세요.
 
-이렇게 하면 나중에 웹 화면에 붙이기 전에 데이터를 먼저 확인할 수 있습니다.
+### 가장 쉬운 버전
+- 제목 출력하기
+- 본문 길이 세기
+- 이미지 개수 세기
 
-## 6. 에러가 나도 정상입니다
+### 그 다음 버전
+- 본문 앞 3문장만 요약하기
+- 특정 키워드가 있는지 찾기
+- 감정적인 표현이 많은지 보기
 
-처음 API 연동을 하면 자주 생기는 문제는 아래와 같습니다.
+### 이미지까지 보고 싶다면
+- `structured_data.json`의 `image_urls` 보기
+- `images/` 폴더 안 실제 파일 개수 보기
 
-- 주소가 틀림
-- API 키가 없음
-- 요청 형식이 틀림
-- 응답이 JSON이 아님
-- 인터넷 연결 문제
+---
 
-이런 문제는 이상한 것이 아닙니다.
+## 6. 실제로는 어떤 파일이 제일 중요하나요?
 
-오히려 처음에는 아래처럼 생각하는 것이 좋습니다.
+처음에는 아래 우선순위로 보면 됩니다.
 
-> “에러를 안 내는 것”보다
-> **에러 메시지를 읽고 이유를 알아내는 것**이 더 중요하다.
+1. `article.txt`
+2. `structured_data.json`
+3. `images/`
+4. `metadata.json`
+5. `image_urls.json`
 
-## 7. 기존 프로젝트와 연결은 나중에 하세요
+즉, **본문 + 구조화 데이터**만 읽어도 대부분의 시작은 충분합니다.
 
-처음부터 기존 웹 화면과 바로 연결하려고 하면 어렵습니다.
+---
 
-그래서 아래 순서를 추천합니다.
+## 7. 실수하지 말아야 할 점
 
-1. 새 폴더 만들기
-2. 새 Python 파일 만들기
-3. 독립적으로 API 호출 성공하기
-4. 응답 데이터 읽기 성공하기
-5. 결과를 저장하거나 출력하기
-6. 그다음 기존 프로젝트에 붙일지 고민하기
+### 1) 루트 폴더 전체를 분석하지 마세요
+`downloaded_news` 전체를 한 번에 읽으려 하지 말고,
+**그 안의 세부 폴더 하나만** 분석하세요.
 
-이 순서가 가장 부담이 적습니다.
+### 2) 폴더 이름을 직접 넘겨받으세요
+하드코딩만 하지 말고 아래 둘 중 하나로 받는 것이 좋습니다.
 
-## 8. 그래도 이 프로젝트와 연결하고 싶다면
+- CLI 인자
+- 함수 인자
 
-정말 나중에 연결하고 싶을 때만 아래 파일을 보면 됩니다.
+### 3) 이미지 정보는 `structured_data.json` 기준으로 보세요
+이미지 관련 판단은 `structured_data.json` 안의 값을 먼저 보면 됩니다.
 
-- `README.md`
-- `CONTRIBUTING.md`
-- `app/routers/analysis.py`
+---
 
-하지만 이것도 처음부터 볼 필요는 없습니다.
+## 8. 한 문장으로 끝내면
 
-처음에는 **새 파일 하나**가 더 중요합니다.
+> **분석 코드는 `downloaded_news/<폴더이름>` 하나를 입력받고, 그 안의 `article.txt`와 `structured_data.json`을 읽으면 됩니다.**
 
-## 9. 지금 이 저장소의 현재 상태
-
-이 저장소는 이미 웹 앱 형태로 실행은 됩니다.
-
-하지만 현재 분석은 진짜 뉴스 분석이 아니라 **연습용 스텁**입니다.
-
-즉,
-
-- 실제 외부 API가 붙어 있지 않고
-- 실제 뉴스 분석이 돌아가고 있지도 않으며
-- 지금은 API 연동을 실험해 보기 좋은 상태라고 보면 됩니다.
-
-그래서 오히려 초보자에게는 부담이 적습니다.
-
-## 10. 초보자용 가장 쉬운 미션
-
-처음 도전할 때는 아래 중 하나만 해 보세요.
-
-### 미션 1
-- 새 폴더 만들기
-- 새 Python 파일 만들기
-- 외부 API 한 번 호출해 보기
-
-### 미션 2
-- 응답 JSON 전체 출력해 보기
-- 그중 한 필드만 꺼내 보기
-
-### 미션 3
-- 실패하는 요청도 일부러 보내 보기
-- 에러 메시지 출력해 보기
-
-### 미션 4
-- 받은 결과를 파일로 저장해 보기
-
-## 11. 이 문서에서 기억할 한 문장
-
-> **프로젝트 구조는 지금 신경 쓰지 말고, 새 폴더에 독립적인 Python 파일을 만들어 API 호출부터 해 보세요.**
-
-이 한 문장만 기억해도 충분합니다.
+이렇게만 이해하면 충분합니다.
