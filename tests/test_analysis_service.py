@@ -1,0 +1,122 @@
+from __future__ import annotations
+
+import unittest
+
+from app.agents.base import AnalysisAgent
+from app.analyzers.base import BaseAnalyzer
+from app.artifact_store import CrawlArtifactStore
+from app.schemas import (
+    AnalysisCriterionResult,
+    AnalysisOutput,
+    AnalysisResult,
+    CrawlerOutput,
+    DownloadArtifactManifest,
+    ReportDetail,
+    ReportOutput,
+    ScoringOutput,
+    URLSubmission,
+)
+from app.services.crawler_service import CrawlerService
+from app.services.analysis_service import DeterministicAnalysisService
+from app.services.report_service import ReportService
+from app.services.scoring_service import ScoringService
+
+
+class _FakeAgent(AnalysisAgent):
+    def analyze(self, crawler_output: CrawlerOutput, criterion: str) -> AnalysisCriterionResult:
+        del crawler_output
+        return AnalysisCriterionResult(score=80, summary=f"{criterion} summary", risk="low")
+
+
+class _FakeCrawlerService(CrawlerService):
+    def collect(self, submission: URLSubmission) -> CrawlerOutput:
+        return CrawlerOutput(
+            analysis_id="analysis-1",
+            url=submission.url,
+            title="기사 제목",
+            content="기사 본문",
+            images=["https://cdn.example.com/image.jpg"],
+            metadata={"source_url": str(submission.url)},
+        )
+
+
+class _FakeAnalyzer(BaseAnalyzer):
+    def __init__(self, name: str) -> None:
+        super().__init__(_FakeAgent())
+        self.name = name
+
+    def analyze(self, payload: CrawlerOutput) -> AnalysisCriterionResult:
+        del payload
+        return AnalysisCriterionResult(score=80, summary=f"{self.name} summary", risk="low")
+
+
+class _FakeScoringService(ScoringService):
+    def score(self, analysis_output: AnalysisOutput) -> ScoringOutput:
+        return ScoringOutput(
+            analysis_id=analysis_output.analysis_id,
+            score=82,
+            score_band="trustworthy",
+            criteria_breakdown={"source_reliability": 80},
+            rationale=["ok"],
+        )
+
+
+class _FakeReportService(ReportService):
+    def build_report(self, analysis_output: AnalysisOutput, scoring_output: ScoringOutput) -> ReportOutput:
+        del analysis_output, scoring_output
+        return ReportOutput(
+            analysis_id="analysis-1",
+            summary="요약입니다.",
+            details=[
+                ReportDetail(
+                    key="source_reliability",
+                    label="출처 신뢰도",
+                    score=80,
+                    summary="괜찮습니다.",
+                    risk="low",
+                )
+            ],
+        )
+
+
+class _FakeArtifactStore(CrawlArtifactStore):
+    def __init__(self) -> None:
+        self.persisted: CrawlerOutput | None = None
+
+    def persist(self, crawler_output: CrawlerOutput) -> DownloadArtifactManifest:
+        self.persisted = crawler_output
+        return DownloadArtifactManifest(storage_directory="downloaded_news/analysis-1")
+
+    def resolve(self, analysis_id: str, relative_path: str) -> None:
+        del analysis_id, relative_path
+        return None
+
+
+class DeterministicAnalysisServiceTests(unittest.TestCase):
+    def test_run_attaches_saved_artifacts_to_analysis_result(self) -> None:
+        artifact_store = _FakeArtifactStore()
+        service = DeterministicAnalysisService(
+            crawler_service=_FakeCrawlerService(),
+            analyzers=[
+                _FakeAnalyzer("source_reliability"),
+                _FakeAnalyzer("claim_consistency"),
+                _FakeAnalyzer("expression_risk"),
+                _FakeAnalyzer("multimodal_risk"),
+            ],
+            scoring_service=_FakeScoringService(),
+            report_service=_FakeReportService(),
+            artifact_store=artifact_store,
+        )
+
+        result = service.run(URLSubmission.model_validate({"url": "https://example.com/article"}))
+
+        self.assertIsInstance(result, AnalysisResult)
+        self.assertIsNotNone(result.artifacts)
+        artifacts = result.artifacts
+        assert artifacts is not None
+        self.assertEqual(artifacts.storage_directory, "downloaded_news/analysis-1")
+        self.assertIsNotNone(artifact_store.persisted)
+
+
+if __name__ == "__main__":
+    unittest.main()

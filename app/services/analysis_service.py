@@ -15,8 +15,10 @@ from app.schemas import (
     AnalysisOutput,
     AnalysisResult,
     CrawlerOutput,
+    DownloadArtifactManifest,
     URLSubmission,
 )
+from app.artifact_store import CrawlArtifactStore
 from .crawler_service import CrawlerService
 from .report_service import ReportService
 from .scoring_service import ScoringService
@@ -38,6 +40,7 @@ class DeterministicAnalysisService(AnalysisService):
     _scoring_service: ScoringService
     _report_service: ReportService
     _evidence_agent: AnalysisAgent
+    _artifact_store: CrawlArtifactStore | None
 
     def __init__(
         self,
@@ -46,17 +49,20 @@ class DeterministicAnalysisService(AnalysisService):
         scoring_service: ScoringService,
         report_service: ReportService,
         evidence_agent: AnalysisAgent | None = None,
+        artifact_store: CrawlArtifactStore | None = None,
     ) -> None:
         self._crawler_service = crawler_service
         self._analyzers = analyzers
         self._scoring_service = scoring_service
         self._report_service = report_service
         self._evidence_agent = evidence_agent or LocalAgent()
+        self._artifact_store = artifact_store
 
     def run(self, submission: URLSubmission) -> AnalysisResult:
         """Execute deterministic, network-free full pipeline."""
 
         crawler_output = self._crawler_service.collect(submission)
+        artifacts = self._persist_artifacts(crawler_output)
         analysis_output = self._run_analysis(crawler_output)
         scoring_output = self._scoring_service.score(analysis_output)
         report_output = self._report_service.build_report(analysis_output, scoring_output)
@@ -70,7 +76,16 @@ class DeterministicAnalysisService(AnalysisService):
             label=scoring_output.score_band,
             summary=report_output.summary,
             details=report_output.details,
+            artifacts=artifacts,
         )
+
+    def _persist_artifacts(
+        self,
+        crawler_output: CrawlerOutput,
+    ) -> DownloadArtifactManifest | None:
+        if self._artifact_store is None:
+            return None
+        return self._artifact_store.persist(crawler_output)
 
     def _run_analysis(self, crawler_output: CrawlerOutput) -> AnalysisOutput:
         criterion_results = self._run_analyzers(crawler_output)
