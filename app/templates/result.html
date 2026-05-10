@@ -59,6 +59,49 @@
             <pre>{{ result.original_content }}</pre>
           </div>
         </section>
+
+        {% if result.artifacts %}
+          <section class="result-section" aria-labelledby="artifacts-title">
+            <h3 id="artifacts-title">다운로드 저장 결과</h3>
+            <p class="detail-summary">저장 폴더: {{ result.artifacts.storage_directory }}</p>
+
+            {% if result.artifacts.files %}
+              <div class="detail-grid">
+                {% for file in result.artifacts.files %}
+                  <article class="detail-card">
+                    <div class="detail-card-header">
+                      <h4>{{ file.label }}</h4>
+                      <span class="detail-score">{{ file.size_bytes }} bytes</span>
+                    </div>
+                    <p class="detail-summary">{{ file.relative_path }}</p>
+                    <a class="text-link" href="/analysis/{{ result.analysis_id }}/artifacts/{{ file.relative_path }}" target="_blank" rel="noopener">파일 열기</a>
+                  </article>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% if result.artifacts.images %}
+              <div class="detail-grid">
+                {% for image in result.artifacts.images %}
+                  <article class="detail-card">
+                    <div class="detail-card-header">
+                      <h4>structured 이미지 {{ loop.index }}</h4>
+                      <span class="detail-score">{{ image.status }}</span>
+                    </div>
+                    <p class="detail-summary">{{ image.source_url }}</p>
+                    {% if image.local_file %}
+                      <p class="detail-summary">상대경로: {{ image.local_file.relative_path }}</p>
+                      <a class="text-link" href="/analysis/{{ result.analysis_id }}/artifacts/{{ image.local_file.relative_path }}" target="_blank" rel="noopener">저장 이미지 열기</a>
+                    {% endif %}
+                    {% if image.error %}
+                      <p class="detail-risk">실패 사유: {{ image.error }}</p>
+                    {% endif %}
+                  </article>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </section>
+        {% endif %}
       </section>
     </main>
   </body>
