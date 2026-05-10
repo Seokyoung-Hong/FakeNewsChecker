@@ -157,6 +157,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Runtime crawl artifacts
+downloaded_news/
+
 # Spyder project settings
 .spyderproject
 .spyproject
