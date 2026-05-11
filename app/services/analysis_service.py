@@ -15,8 +15,10 @@ from app.schemas import (
     AnalysisOutput,
     AnalysisResult,
     CrawlerOutput,
+    DownloadArtifactManifest,
     URLSubmission,
 )
+from app.artifact_store import CrawlArtifactStore
 from .crawler_service import CrawlerService
 from .report_service import ReportService
 from .scoring_service import ScoringService
@@ -38,6 +40,7 @@ class DeterministicAnalysisService(AnalysisService):
     _scoring_service: ScoringService
     _report_service: ReportService
     _evidence_agent: AnalysisAgent
+    _artifact_store: CrawlArtifactStore | None
 
     def __init__(
         self,
@@ -46,17 +49,21 @@ class DeterministicAnalysisService(AnalysisService):
         scoring_service: ScoringService,
         report_service: ReportService,
         evidence_agent: AnalysisAgent | None = None,
+        artifact_store: CrawlArtifactStore | None = None,
     ) -> None:
         self._crawler_service = crawler_service
         self._analyzers = analyzers
         self._scoring_service = scoring_service
         self._report_service = report_service
         self._evidence_agent = evidence_agent or LocalAgent()
+        self._artifact_store = artifact_store
 
     def run(self, submission: URLSubmission) -> AnalysisResult:
         """Execute deterministic, network-free full pipeline."""
 
+        self._reset_analysis_agents()
         crawler_output = self._crawler_service.collect(submission)
+        artifacts = self._persist_artifacts(crawler_output)
         analysis_output = self._run_analysis(crawler_output)
         scoring_output = self._scoring_service.score(analysis_output)
         report_output = self._report_service.build_report(analysis_output, scoring_output)
@@ -70,7 +77,32 @@ class DeterministicAnalysisService(AnalysisService):
             label=scoring_output.score_band,
             summary=report_output.summary,
             details=report_output.details,
+            artifacts=artifacts,
         )
+
+    def _reset_analysis_agents(self) -> None:
+        seen: set[int] = set()
+        agents: list[object] = [self._evidence_agent]
+        agents.extend(getattr(analyzer, "_agent", None) for analyzer in self._analyzers)
+
+        for agent in agents:
+            if agent is None:
+                continue
+            marker = id(agent)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            reset = getattr(agent, "reset_cache", None)
+            if callable(reset):
+                reset()
+
+    def _persist_artifacts(
+        self,
+        crawler_output: CrawlerOutput,
+    ) -> DownloadArtifactManifest | None:
+        if self._artifact_store is None:
+            return None
+        return self._artifact_store.persist(crawler_output)
 
     def _run_analysis(self, crawler_output: CrawlerOutput) -> AnalysisOutput:
         criterion_results = self._run_analyzers(crawler_output)
@@ -87,7 +119,7 @@ class DeterministicAnalysisService(AnalysisService):
             evidence_quality=criteria["evidence_quality"],
             expression_risk=criteria["expression_risk"],
             multimodal_risk=criteria["multimodal_risk"],
-            overall_summary=self._compose_overall_summary(criteria),
+            overall_summary=self._resolve_overall_summary(crawler_output, criteria),
         )
 
     def _run_analyzers(
@@ -133,6 +165,18 @@ class DeterministicAnalysisService(AnalysisService):
             f"가장 낮은 항목은 '{weakest_key}'({weakest.score}점), "
             f"가장 높은 항목은 '{strongest_key}'({strongest.score}점)입니다."
         )
+
+    def _resolve_overall_summary(
+        self,
+        crawler_output: CrawlerOutput,
+        criteria: Mapping[str, AnalysisCriterionResult],
+    ) -> str:
+        summary_getter = getattr(self._evidence_agent, "get_overall_summary", None)
+        if callable(summary_getter):
+            summary = summary_getter(crawler_output)
+            if isinstance(summary, str) and summary.strip():
+                return summary.strip()
+        return self._compose_overall_summary(criteria)
 
 
 __all__ = ["AnalysisService", "DeterministicAnalysisService"]

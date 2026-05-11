@@ -3,16 +3,18 @@
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Form, Request, Response, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
 from app.dependencies import (
     get_active_analysis_repository,
     get_active_analysis_service,
+    get_crawl_artifact_store,
     get_templates,
 )
+from app.artifact_store import CrawlArtifactStore
 from app.repositories import AnalysisResultRepository
 from app.schemas import URLSubmission
 from app.services.analysis_service import AnalysisService
@@ -60,6 +62,25 @@ def create_analysis(
         url=f"/analysis/{analysis_id}",
         status_code=status.HTTP_303_SEE_OTHER,
     )
+
+
+@router.get("/analysis/{analysis_id}/artifacts/{artifact_path:path}")
+def analysis_artifact_file(
+    analysis_id: str,
+    artifact_path: str,
+    repository: Annotated[AnalysisResultRepository, Depends(get_active_analysis_repository)],
+    artifact_store: Annotated[CrawlArtifactStore, Depends(get_crawl_artifact_store)],
+) -> FileResponse:
+    """Serve a previously saved crawl artifact file."""
+
+    if repository.get(analysis_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
+
+    file_path = artifact_store.resolve(analysis_id, artifact_path)
+    if file_path is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found")
+
+    return FileResponse(path=file_path)
 
 
 @router.get("/analysis/{analysis_id}", response_class=HTMLResponse)

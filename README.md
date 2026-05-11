@@ -1,72 +1,108 @@
-# Fake News Verification Prototype
+# FakeNewsChecker
 
-FastAPI + Jinja2 prototype for submitting a news/SNS/blog URL and viewing a deterministic trust-style report.
+이 저장소는 **API 연동을 처음 배워 보는 사람도 실습할 수 있는 Python 프로젝트**입니다.
 
-## Prototype scope
+지금 이 프로젝트는 웹 화면으로 실행은 되지만, 실제 뉴스 분석 API가 붙어 있는 상태는 아닙니다. 현재 분석 결과는 연습용으로 만들어진 스텁 결과입니다.
 
-- Primary runtime path: Docker Compose only
-- Supported user flow: `GET /` → `POST /analysis` → `GET /analysis/{analysis_id}`
-- The analysis pipeline is a deterministic offline stub (`crawler -> analysis -> scoring -> report`)
-- Results are stored in an in-memory repository inside the running web container
+그래서 이 저장소를 처음 보는 사람은 이렇게 생각하면 됩니다.
 
-## What this prototype does
+> **기존 구조를 먼저 이해하려고 애쓰지 말고, 새 폴더에 Python 파일 하나를 만들어 API 호출부터 해 보면 된다.**
 
-- Renders a homepage with a URL form
-- Accepts a valid URL and redirects to a result page
-- Shows a deterministic score, label, summary, five criteria blocks, and original-content viewer text
-- Keeps all behavior offline and reproducible for the same input URL
+## 1. 가장 쉬운 시작 방법
 
-## What this prototype does not do
+저장소 안에 원하는 폴더를 새로 하나 만드세요.
 
-- It does **not** perform real crawling
-- It does **not** call external AI models or real fake-news detection systems
-- It does **not** provide durable storage
-- It does **not** track real background progress; the loading state is UI-only
+예를 들면:
 
-## Important runtime caveat
+```text
+practice/
+└── my_first_api.py
+```
 
-Analysis results live only in the web process memory. If you restart or rebuild the container, previously generated `/analysis/{analysis_id}` pages are expected to disappear.
+또는
 
-## Run the prototype
+```text
+beginner/
+└── test_call.py
+```
 
-### Prerequisite
+폴더 이름은 아무거나 괜찮습니다.
 
-- Docker Desktop / Docker Engine with Compose support
+그 다음에는 그 Python 파일 안에서 아래만 해 보면 됩니다.
 
-### Start
+1. API 주소 적기
+2. 요청 보내기
+3. 응답 출력하기
+4. JSON이면 값 꺼내 보기
+5. 에러 나면 메시지 읽어 보기
+
+## 2. 처음에는 이것만 해도 충분합니다
+
+처음 API를 배울 때 중요한 것은 아래입니다.
+
+- 요청이 나가는지
+- 응답이 오는지
+- JSON을 읽을 수 있는지
+- 원하는 값만 꺼낼 수 있는지
+- 실패 원인을 볼 수 있는지
+
+반대로 처음부터 아래를 신경 쓸 필요는 없습니다.
+
+- 프로젝트 구조
+- 파일을 어느 폴더에 넣어야 하는지
+- 기존 코드와 어떻게 연결해야 하는지
+- 복잡한 내부 동작 방식
+
+## 3. 이 저장소의 현재 상태
+
+아주 쉽게 말하면 지금 상태는 이렇습니다.
+
+- 웹 화면은 실행됩니다.
+- URL을 넣으면 결과 화면도 나옵니다.
+- 하지만 그 결과는 진짜 분석 결과가 아니라 연습용입니다.
+- 아직 실제 외부 API를 붙인 상태는 아닙니다.
+
+즉, **실제 API 연동을 연습해 보기 좋은 상태**라고 생각하면 됩니다.
+
+## 4. 실행해 보고 싶다면
+
+### 시작
 
 ```bash
 docker compose up --build
 ```
 
-### Open the app
+### 접속
 
-- Homepage: `http://localhost:8000/`
+- `http://localhost:8000/`
 
-### Manual verification path
+### 확인할 것
 
-1. Open the homepage.
-2. Submit a valid URL such as `https://example.com/news-story`.
-3. Confirm the browser redirects to `/analysis/{analysis_id}`.
-4. Confirm the result page shows:
-   - a numeric score out of 100
-   - a score label
-   - a summary report
-   - five detailed criteria cards
-   - an original content viewer section
+1. 홈 화면이 열리는지
+2. URL을 넣고 결과 화면으로 넘어가는지
+3. 결과가 화면에 보이는지
 
-### Stop
+### 종료
 
 ```bash
 docker compose down
 ```
 
-## Optional contributor sanity checks
+## 5. 초보자에게 추천하는 순서
 
-These are useful for local diagnostics, but they are not the primary runtime path.
+1. 새 폴더 만들기
+2. 새 Python 파일 만들기
+3. 독립적으로 API 호출해 보기
+4. 응답 출력해 보기
+5. 결과를 파일로 저장해 보기
+6. 그다음 필요하면 이 프로젝트와 연결하기
 
-```bash
-uv sync
-python -c "import app.main; print('ok')"
-python -m compileall app
-```
+## 6. 관련 문서
+
+- 쉬운 시작 안내: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+- API 연동 입문 가이드: [`docs/IMPLEMENTATION_GUIDE_ANALYSIS_PYTHON.md`](./docs/IMPLEMENTATION_GUIDE_ANALYSIS_PYTHON.md)
+- 장기 제품 설명: [`FunctionalSpec.md`](./FunctionalSpec.md)
+
+## 7. 이 문서에서 기억할 한 문장
+
+> **프로젝트 구조는 지금 신경 쓰지 말고, 새 폴더에 독립적인 Python 파일을 만들어 API 호출부터 해 보세요.**

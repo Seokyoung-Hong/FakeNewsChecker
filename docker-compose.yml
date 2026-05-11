@@ -1,6 +1,15 @@
 services:
   web:
     build: .
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips="*"
+    environment:
+      CRAWLER_PROVIDER: hyperbrowser
+      HYPERBROWSER_API_KEY: ${HYPERBROWSER_API_KEY:?HYPERBROWSER_API_KEY is required for HyperBrowser downloads}
+      HYPERBROWSER_WAIT_UNTIL: ${HYPERBROWSER_WAIT_UNTIL:-load}
+      HYPERBROWSER_WAIT_FOR_MS: ${HYPERBROWSER_WAIT_FOR_MS:-1500}
+      HYPERBROWSER_TIMEOUT_MS: ${HYPERBROWSER_TIMEOUT_MS:-30000}
+      ANALYSIS_ARTIFACT_ROOT: ${ANALYSIS_ARTIFACT_ROOT:-downloaded_news}
     ports:
       - "8000:8000"
+    volumes:
+      - ./downloaded_news:/app/downloaded_news

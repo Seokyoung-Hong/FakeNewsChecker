@@ -82,6 +82,32 @@ class ReportOutput(BaseModel):
     recommendation: str | None = None
 
 
+class ArtifactFile(BaseModel):
+    """Single saved file on local disk."""
+
+    label: str = Field(min_length=1)
+    relative_path: str = Field(min_length=1)
+    size_bytes: int = Field(ge=0)
+    media_type: str | None = None
+
+
+class DownloadedImage(BaseModel):
+    """Result of trying to save one image locally."""
+
+    source_url: str = Field(min_length=1)
+    status: str = Field(min_length=1)
+    local_file: ArtifactFile | None = None
+    error: str | None = None
+
+
+class DownloadArtifactManifest(BaseModel):
+    """Saved crawl artifact summary shown on the result page."""
+
+    storage_directory: str = Field(min_length=1)
+    files: list[ArtifactFile] = Field(default_factory=list)
+    images: list[DownloadedImage] = Field(default_factory=list)
+
+
 class AnalysisResult(BaseModel):
     """Persisted/final rendered result payload consumed by result page."""
 
@@ -93,6 +119,7 @@ class AnalysisResult(BaseModel):
     label: str = Field(description="Human-facing score band label")
     summary: str = Field(min_length=1)
     details: list[ReportDetail]
+    artifacts: DownloadArtifactManifest | None = None
     created_at: datetime = Field(default_factory=_utcnow)
 
 
@@ -116,6 +143,9 @@ __all__ = [
     "ScoringOutput",
     "ReportDetail",
     "ReportOutput",
+    "ArtifactFile",
+    "DownloadedImage",
+    "DownloadArtifactManifest",
     "AnalysisResult",
     "derive_score_band",
 ]
