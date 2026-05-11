@@ -92,6 +92,18 @@ class _FakeArtifactStore(CrawlArtifactStore):
         return None
 
 
+class _ResettableAgent(_FakeAgent):
+    def __init__(self) -> None:
+        self.reset_count = 0
+
+    def reset_cache(self) -> None:
+        self.reset_count += 1
+
+    def get_overall_summary(self, crawler_output: CrawlerOutput) -> str:
+        del crawler_output
+        return "LLM 핵심 근거: 근거 부족"
+
+
 class DeterministicAnalysisServiceTests(unittest.TestCase):
     def test_run_attaches_saved_artifacts_to_analysis_result(self) -> None:
         artifact_store = _FakeArtifactStore()
@@ -116,6 +128,56 @@ class DeterministicAnalysisServiceTests(unittest.TestCase):
         assert artifacts is not None
         self.assertEqual(artifacts.storage_directory, "downloaded_news/analysis-1")
         self.assertIsNotNone(artifact_store.persisted)
+
+    def test_run_resets_cache_on_shared_agent_once(self) -> None:
+        artifact_store = _FakeArtifactStore()
+        resettable_agent = _ResettableAgent()
+        service = DeterministicAnalysisService(
+            crawler_service=_FakeCrawlerService(),
+            analyzers=[
+                _FakeAnalyzer("source_reliability"),
+                _FakeAnalyzer("claim_consistency"),
+                _FakeAnalyzer("expression_risk"),
+                _FakeAnalyzer("multimodal_risk"),
+            ],
+            scoring_service=_FakeScoringService(),
+            report_service=_FakeReportService(),
+            evidence_agent=resettable_agent,
+            artifact_store=artifact_store,
+        )
+
+        for analyzer in service._analyzers:
+            analyzer._agent = resettable_agent
+
+        service.run(URLSubmission.model_validate({"url": "https://example.com/article"}))
+
+        self.assertEqual(resettable_agent.reset_count, 1)
+
+    def test_run_prefers_llm_overall_summary_when_available(self) -> None:
+        artifact_store = _FakeArtifactStore()
+        resettable_agent = _ResettableAgent()
+        service = DeterministicAnalysisService(
+            crawler_service=_FakeCrawlerService(),
+            analyzers=[
+                _FakeAnalyzer("source_reliability"),
+                _FakeAnalyzer("claim_consistency"),
+                _FakeAnalyzer("expression_risk"),
+                _FakeAnalyzer("multimodal_risk"),
+            ],
+            scoring_service=_FakeScoringService(),
+            report_service=_FakeReportService(),
+            evidence_agent=resettable_agent,
+            artifact_store=artifact_store,
+        )
+
+        for analyzer in service._analyzers:
+            analyzer._agent = resettable_agent
+
+        analysis_output = service._run_analysis(
+            _FakeCrawlerService().collect(URLSubmission.model_validate({"url": "https://example.com/article"}))
+        )
+
+        self.assertEqual(analysis_output.overall_summary, "LLM 핵심 근거: 근거 부족")
 
 
 if __name__ == "__main__":

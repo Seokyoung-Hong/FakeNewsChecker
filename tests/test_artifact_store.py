@@ -75,13 +75,16 @@ class FilesystemCrawlArtifactStoreTests(unittest.TestCase):
             self.assertTrue(any(file.relative_path == "structured_data.json" for file in manifest.files))
             self.assertEqual(manifest.images[0].status, "downloaded")
             self.assertIsNotNone(manifest.images[0].local_file)
-            self.assertEqual(len(manifest.images), 2)
+            self.assertEqual(len(manifest.images), 3)
             first_file = manifest.images[0].local_file
             second_file = manifest.images[1].local_file
+            third_file = manifest.images[2].local_file
             assert first_file is not None
             assert second_file is not None
+            assert third_file is not None
             self.assertEqual(first_file.relative_path, "images/image-001.jpg")
             self.assertEqual(second_file.relative_path, "images/image-002.jpg")
+            self.assertEqual(third_file.relative_path, "images/image-003.jpg")
 
             metadata_path = Path(manifest.storage_directory) / "metadata.json"
             payload = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -91,6 +94,7 @@ class FilesystemCrawlArtifactStoreTests(unittest.TestCase):
             structured_payload = json.loads(structured_path.read_text(encoding="utf-8"))
             self.assertEqual(structured_payload["saved_images"][0]["relative_path"], "images/image-001.jpg")
             self.assertEqual(structured_payload["saved_images"][1]["relative_path"], "images/image-002.jpg")
+            self.assertEqual(structured_payload["saved_images"][2]["relative_path"], "images/image-003.jpg")
 
     def test_persist_accepts_attribute_style_structured_data(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
