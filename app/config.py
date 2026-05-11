@@ -1,11 +1,26 @@
 """Runtime configuration helpers for crawler selection."""
 
+# pyright: reportMissingImports=false
+
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:  # pragma: no cover - optional local convenience only
+    def load_dotenv() -> bool:
+        return False
+
+
+load_dotenv()
+
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+HIVE_API_KEY = os.getenv("HIVE_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 
 @dataclass(frozen=True)
@@ -42,7 +57,10 @@ class CrawlerSettings:
 
         hyperbrowser_wait_for_ms = int(env.get("HYPERBROWSER_WAIT_FOR_MS", "1500"))
         hyperbrowser_timeout_ms = int(env.get("HYPERBROWSER_TIMEOUT_MS", "30000"))
-        artifact_root_dir = env.get("ANALYSIS_ARTIFACT_ROOT", "downloaded_news").strip() or "downloaded_news"
+        artifact_root_dir = (
+            env.get("ANALYSIS_ARTIFACT_ROOT", "downloaded_news").strip()
+            or "downloaded_news"
+        )
 
         if provider == "hyperbrowser" and not hyperbrowser_api_key:
             raise ValueError(
@@ -59,4 +77,9 @@ class CrawlerSettings:
         )
 
 
-__all__ = ["CrawlerSettings"]
+__all__ = [
+    "ANTHROPIC_API_KEY",
+    "HIVE_API_KEY",
+    "GEMINI_API_KEY",
+    "CrawlerSettings",
+]
