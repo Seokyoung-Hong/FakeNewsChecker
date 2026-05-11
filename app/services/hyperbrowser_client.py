@@ -111,8 +111,10 @@ class HyperbrowserClient:
         fetch_output_json = models_module.FetchOutputJson(
             type="json",
             prompt=(
-                "Extract the page title, the main article or post text, and all meaningful "
-                "image URLs that belong to the article, card news, or post body."
+                "Extract the page title, the main article or post text, and every meaningful "
+                "image URL that belongs to the article body, post body, or card-news/carousel slides. "
+                "For Instagram or similar SNS posts, include every actual post/carousel image in order. "
+                "Exclude profile pictures, author avatars, commenter avatars, icons, logos, navigation images, and ad images."
             ),
             schema={
                 "type": "object",

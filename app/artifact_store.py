@@ -180,7 +180,7 @@ class FilesystemCrawlArtifactStore(CrawlArtifactStore):
         image_urls: list[str],
     ) -> list[DownloadedImage]:
         downloads: list[DownloadedImage] = []
-        for index, image_url in enumerate(image_urls[:2], start=1):
+        for index, image_url in enumerate(image_urls, start=1):
             downloads.append(
                 self._download_image(
                     analysis_id=analysis_id,

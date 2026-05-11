@@ -69,10 +69,8 @@ class DeterministicReportService(ReportService):
         return details
 
     def _build_summary(self, analysis_output: AnalysisOutput, scoring_output: ScoringOutput) -> str:
-        return (
-            f"총점은 {scoring_output.score}점이며 판정은 '{scoring_output.score_band}'입니다. "
-            f"{analysis_output.overall_summary}"
-        )
+        del scoring_output
+        return analysis_output.overall_summary
 
     def _build_recommendation(self, score: int) -> str:
         if score >= 80:
@@ -85,4 +83,3 @@ class DeterministicReportService(ReportService):
 
 
 __all__ = ["ReportService", "DeterministicReportService"]
-

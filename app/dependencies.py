@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import CrawlerSettings
 from app.artifact_store import CrawlArtifactStore, FilesystemCrawlArtifactStore
+from app.agents.jiwon_agent import JiwonAnalysisAgent
 from app.agents.local_agent import LocalAgent
 from app.analyzers.claim_analyzer import ClaimAnalyzer
 from app.analyzers.expression_analyzer import ExpressionAnalyzer
@@ -100,18 +101,19 @@ def _build_analysis_service(
     module's provider functions straightforward.
     """
 
-    local_agent = LocalAgent()
+    analysis_agent = JiwonAnalysisAgent(fallback_agent=LocalAgent())
     analyzers = (
-        SourceAnalyzer(local_agent),
-        ClaimAnalyzer(local_agent),
-        ExpressionAnalyzer(local_agent),
-        MultimodalAnalyzer(local_agent),
+        SourceAnalyzer(analysis_agent),
+        ClaimAnalyzer(analysis_agent),
+        ExpressionAnalyzer(analysis_agent),
+        MultimodalAnalyzer(analysis_agent),
     )
     return DeterministicAnalysisService(
         crawler_service=crawler_service,
         analyzers=analyzers,
         scoring_service=scoring_service,
         report_service=report_service,
+        evidence_agent=analysis_agent,
         artifact_store=artifact_store,
     )
 

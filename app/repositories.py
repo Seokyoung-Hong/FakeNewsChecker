@@ -7,8 +7,6 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from threading import RLock
-from typing import override
-
 from typing import Protocol
 
 
@@ -49,7 +47,6 @@ class InMemoryAnalysisResultRepository(AnalysisResultRepository):
         self._store: dict[str, AnalysisResultLike] = {}
         self._lock: RLock = RLock()
 
-    @override
     def create(self, result: AnalysisResultLike) -> str:
         result_payload = copy.deepcopy(result)
         if not result_payload.analysis_id:
@@ -60,7 +57,6 @@ class InMemoryAnalysisResultRepository(AnalysisResultRepository):
 
         return result_payload.analysis_id
 
-    @override
     def get(self, analysis_id: str) -> AnalysisResultLike | None:
         with self._lock:
             result = self._store.get(analysis_id)
