@@ -1,5 +1,8 @@
 import json
 import logging
+from collections.abc import Mapping
+from collections.abc import Callable
+from typing import cast
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
@@ -60,26 +63,54 @@ def _extract_streamed_content(response: httpx.Response) -> str:
         if not line:
             continue
 
-        payload_obj = json.loads(line)
-        if not isinstance(payload_obj, dict):
+        payload_obj = cast(object, json.loads(line))
+        if not isinstance(payload_obj, Mapping):
             continue
 
-        message = payload_obj.get("message")
-        if isinstance(message, dict):
-            content = message.get("content")
+        payload_mapping = cast(Mapping[str, object], payload_obj)
+        message = payload_mapping.get("message")
+        if isinstance(message, Mapping):
+            message_mapping = cast(Mapping[str, object], message)
+            content = message_mapping.get("content")
             if isinstance(content, str) and content:
                 parts.append(content)
 
     return "".join(parts).strip()
 
 
-def analyze_text(
+def _request_text_analysis(
+    *,
+    host: str,
+    model: str,
     title: str,
     url: str,
     text: str,
     settings: OllamaSettings,
 ) -> dict[str, object]:
-    prompt = f"""너는 텍스트 기반 가짜뉴스 판별 도우미야. 아래 콘텐츠가 허위이거나, 과장되었거나, 오해를 유발할 가능성이 있는지 분석해줘.
+    endpoint = host.rstrip("/") + "/api/chat"
+    body = {
+        "model": model,
+        "stream": True,
+        "format": _OllamaAnalysisPayload.model_json_schema(),
+        "options": {"temperature": 0},
+        "messages": [
+            {"role": "system", "content": "Return only valid JSON matching the provided schema."},
+            {"role": "user", "content": _build_prompt(title=title, url=url, text=text)},
+        ],
+    }
+
+    with httpx.stream("POST", endpoint, json=body, timeout=settings.timeout_ms / 1000) as response:
+        _ = response.raise_for_status()
+        content = _extract_streamed_content(response)
+    if not content.strip():
+        raise ValueError("content_missing")
+    normalized = _clean_json_payload(content)
+    validated = _OllamaAnalysisPayload.model_validate_json(normalized)
+    return validated.model_dump()
+
+
+def _build_prompt(*, title: str, url: str, text: str) -> str:
+    return f"""너는 텍스트 기반 가짜뉴스 판별 도우미야. 아래 콘텐츠가 허위이거나, 과장되었거나, 오해를 유발할 가능성이 있는지 분석해줘.
 
 제목: {title}
 URL: {url}
@@ -108,34 +139,105 @@ URL: {url}
 - 100 = 가짜뉴스 가능성이 매우 낮음
 - 0 = 가짜뉴스 가능성이 매우 높음"""
 
-    endpoint = settings.host.rstrip("/") + "/api/chat"
-    logger.debug("Starting Ollama text analysis", extra={"event": "ollama_request_start", "host": settings.host, "model": settings.model, "url": url, "text_length": len(text)})
-    body = {
-        "model": settings.model,
-        "stream": True,
-        "format": _OllamaAnalysisPayload.model_json_schema(),
-        "options": {"temperature": 0},
-        "messages": [
-            {"role": "system", "content": "Return only valid JSON matching the provided schema."},
-            {"role": "user", "content": prompt},
-        ],
-    }
 
-    try:
-        with httpx.stream("POST", endpoint, json=body, timeout=settings.timeout_ms / 1000) as response:
-            _ = response.raise_for_status()
-            content = _extract_streamed_content(response)
-        if not isinstance(content, str) or not content.strip():
-            logger.debug("Ollama response missing content", extra={"event": "ollama_response_invalid", "reason": "content_missing", "host": settings.host, "model": settings.model})
+def analyze_text(
+    title: str,
+    url: str,
+    text: str,
+    settings: OllamaSettings,
+    *,
+    on_failover: Callable[[str, str, str], None] | None = None,
+) -> dict[str, object]:
+    host_model_pairs = settings.host_model_pairs
+    for index, (host, model) in enumerate(host_model_pairs, start=1):
+        logger.debug(
+            "Starting Ollama text analysis",
+            extra={
+                "event": "ollama_request_start",
+                "host": host,
+                "model": model,
+                "host_index": index,
+                "host_count": len(host_model_pairs),
+                "url": url,
+                "text_length": len(text),
+            },
+        )
+        try:
+            payload = _request_text_analysis(
+                host=host,
+                model=model,
+                title=title,
+                url=url,
+                text=text,
+                settings=settings,
+            )
+        except httpx.HTTPError as exc:
+            has_next = index < len(host_model_pairs)
+            if has_next:
+                next_host, next_model = host_model_pairs[index]
+                if on_failover is not None:
+                    on_failover(host, next_host, next_model)
+                logger.debug(
+                    "Ollama host unavailable; attempting failover",
+                    extra={
+                        "event": "ollama_request_host_failover",
+                        "failed_host": host,
+                        "failed_model": model,
+                        "next_host": next_host,
+                        "next_model": next_model,
+                        "host_index": index,
+                        "host_count": len(host_model_pairs),
+                        "exception_class": type(exc).__name__,
+                    },
+                )
+            else:
+                logger.debug(
+                    "Ollama host unavailable",
+                    extra={
+                        "event": "ollama_request_host_unavailable",
+                        "host": host,
+                        "model": model,
+                        "host_index": index,
+                        "host_count": len(host_model_pairs),
+                        "exception_class": type(exc).__name__,
+                    },
+                )
+            continue
+        except (ValueError, ValidationError, json.JSONDecodeError, TypeError) as exc:
+            logger.debug(
+                "Ollama text analysis fell back",
+                extra={
+                    "event": "ollama_request_fallback",
+                    "host": host,
+                    "host_index": index,
+                    "host_count": len(host_model_pairs),
+                    "model": model,
+                    "exception_class": type(exc).__name__,
+                },
+            )
             return _fallback_text_result()
-        normalized = _clean_json_payload(content)
-        validated = _OllamaAnalysisPayload.model_validate_json(normalized)
-    except (httpx.HTTPError, ValueError, ValidationError, json.JSONDecodeError, TypeError) as exc:
-        logger.debug("Ollama text analysis fell back", extra={"event": "ollama_request_fallback", "host": settings.host, "model": settings.model, "exception_class": type(exc).__name__})
-        return _fallback_text_result()
 
-    logger.debug("Ollama text analysis completed", extra={"event": "ollama_request_done", "host": settings.host, "model": settings.model, "payload_keys": list(validated.model_dump().keys())})
-    return validated.model_dump()
+        logger.debug(
+            "Ollama text analysis completed",
+            extra={
+                "event": "ollama_request_done",
+                "host": host,
+                "host_index": index,
+                "host_count": len(host_model_pairs),
+                "model": model,
+                "payload_keys": list(payload.keys()),
+            },
+        )
+        return payload
+
+    logger.debug(
+        "All Ollama hosts unavailable",
+        extra={
+            "event": "ollama_request_all_hosts_unavailable",
+            "host_model_pairs": host_model_pairs,
+        },
+    )
+    return _fallback_text_result()
 
 
 __all__ = ["analyze_text"]
