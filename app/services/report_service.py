@@ -5,8 +5,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import logging
 
 from app.schemas import AnalysisOutput, ReportDetail, ReportOutput, ScoringOutput
+
+
+logger = logging.getLogger(__name__)
 
 
 class ReportService(ABC):
@@ -36,6 +40,16 @@ class DeterministicReportService(ReportService):
         details = self._build_details(analysis_output)
         summary = self._build_summary(analysis_output, scoring_output)
         recommendation = self._build_recommendation(scoring_output.score)
+
+        logger.debug(
+            "Report built",
+            extra={
+                "event": "report_built",
+                "analysis_id": scoring_output.analysis_id,
+                "detail_count": len(details),
+                "has_recommendation": recommendation is not None,
+            },
+        )
 
         return ReportOutput(
             analysis_id=scoring_output.analysis_id,

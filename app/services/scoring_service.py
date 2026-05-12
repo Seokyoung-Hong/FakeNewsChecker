@@ -5,8 +5,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import logging
 
 from app.schemas import AnalysisOutput, ScoringOutput, derive_score_band
+
+
+logger = logging.getLogger(__name__)
 
 
 class ScoringService(ABC):
@@ -60,6 +64,17 @@ class DeterministicScoringService(ScoringService):
             score = 100
 
         score_band = derive_score_band(score)
+
+        logger.debug(
+            "Scoring completed",
+            extra={
+                "event": "scoring_done",
+                "analysis_id": analysis_output.analysis_id,
+                "score": score,
+                "score_band": score_band,
+                "criteria": criteria,
+            },
+        )
 
         return ScoringOutput(
             analysis_id=analysis_output.analysis_id,

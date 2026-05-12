@@ -5,8 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from importlib import import_module
+import logging
 from typing import Any
 from urllib.parse import urljoin
+
+
+logger = logging.getLogger(__name__)
 
 
 class HyperbrowserClientError(RuntimeError):
@@ -35,12 +39,14 @@ class HyperbrowserClient:
     timeout_ms: int = 30000
 
     def download(self, url: str) -> HyperbrowserDownloadResult:
+        logger.debug("Starting Hyperbrowser download", extra={"event": "hyperbrowser_download_start", "url": url, "wait_until": self.wait_until, "wait_for_ms": self.wait_for_ms, "timeout_ms": self.timeout_ms})
         hyperbrowser_module, models_module = _import_hyperbrowser()
 
         try:
             client = hyperbrowser_module.Hyperbrowser(api_key=self.api_key)
             result = client.web.fetch(self._build_fetch_params(models_module, url))
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Hyperbrowser SDK call failed", extra={"event": "hyperbrowser_download_failed", "url": url, "exception_class": type(exc).__name__})
             raise HyperbrowserClientError(f"HyperBrowser download failed: {exc}") from exc
 
         status = _as_string(_read_value(result, "status")) or "unknown"
@@ -77,15 +83,17 @@ class HyperbrowserClient:
 
         if status != "completed":
             if error:
+                logger.warning("Hyperbrowser fetch returned non-completed status", extra={"event": "hyperbrowser_status_failed", "url": url, "status": status, "error": error or None})
                 raise HyperbrowserClientError(f"HyperBrowser fetch failed: {error}")
             raise HyperbrowserClientError(f"HyperBrowser fetch failed: {error}")
 
         if not content:
+            logger.warning("Hyperbrowser fetch produced no readable content", extra={"event": "hyperbrowser_content_missing", "url": url, "status": status})
             raise HyperbrowserClientError(
                 "HyperBrowser download did not produce readable content."
             )
 
-        return HyperbrowserDownloadResult(
+        result_payload = HyperbrowserDownloadResult(
             requested_url=url,
             final_url=final_url,
             title=title or final_url,
@@ -106,6 +114,8 @@ class HyperbrowserClient:
                 "structured_data": structured,
             },
         )
+        logger.debug("Completed Hyperbrowser download", extra={"event": "hyperbrowser_download_done", "requested_url": url, "final_url": final_url, "image_count": len(images), "content_length": len(content), "job_id": job_id or None})
+        return result_payload
 
     def _build_fetch_params(self, models_module: Any, url: str) -> Any:
         fetch_output_json = models_module.FetchOutputJson(
@@ -150,6 +160,7 @@ def _import_hyperbrowser() -> tuple[Any, Any]:
         hyperbrowser_module = import_module("hyperbrowser")
         models_module = import_module("hyperbrowser.models")
     except ModuleNotFoundError as exc:
+        logger.error("Hyperbrowser SDK is not installed", extra={"event": "hyperbrowser_sdk_missing"})
         raise HyperbrowserClientError(
             "HyperBrowser SDK is not installed. Run 'pip install hyperbrowser'."
         ) from exc

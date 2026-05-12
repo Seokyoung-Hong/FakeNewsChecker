@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import mimetypes
 import shutil
 import socket
@@ -13,6 +14,9 @@ from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from app.schemas import ArtifactFile, DownloadArtifactManifest, DownloadedImage, CrawlerOutput
+
+
+logger = logging.getLogger(__name__)
 
 
 class CrawlArtifactStore(ABC):
@@ -166,11 +170,13 @@ class FilesystemCrawlArtifactStore(CrawlArtifactStore):
         )
         images.extend(downloaded_structured_images)
 
-        return DownloadArtifactManifest(
+        manifest = DownloadArtifactManifest(
             storage_directory=str(analysis_dir),
             files=files,
             images=images,
         )
+        logger.debug("Persisted crawl artifacts", extra={"event": "artifact_store_persist", "analysis_id": crawler_output.analysis_id, "file_count": len(files), "image_count": len(images), "storage_directory": str(analysis_dir)})
+        return manifest
 
     def _download_structured_images(
         self,
@@ -193,6 +199,7 @@ class FilesystemCrawlArtifactStore(CrawlArtifactStore):
 
     def resolve(self, analysis_id: str, relative_path: str) -> Path | None:
         if not relative_path:
+            logger.debug("Artifact resolve rejected: empty path", extra={"event": "artifact_resolve_rejected", "analysis_id": analysis_id, "reason": "empty_path"})
             return None
 
         base_root = self._root_dir.resolve()
@@ -200,6 +207,7 @@ class FilesystemCrawlArtifactStore(CrawlArtifactStore):
         try:
             root.relative_to(base_root)
         except ValueError:
+            logger.debug("Artifact resolve rejected: invalid analysis root", extra={"event": "artifact_resolve_rejected", "analysis_id": analysis_id, "reason": "invalid_root"})
             return None
 
         candidate = (root / relative_path).resolve()
@@ -207,10 +215,13 @@ class FilesystemCrawlArtifactStore(CrawlArtifactStore):
         try:
             candidate.relative_to(root)
         except ValueError:
+            logger.debug("Artifact resolve rejected: traversal", extra={"event": "artifact_resolve_rejected", "analysis_id": analysis_id, "relative_path": relative_path, "reason": "path_traversal"})
             return None
 
         if not candidate.is_file():
+            logger.debug("Artifact resolve miss", extra={"event": "artifact_resolve_miss", "analysis_id": analysis_id, "relative_path": relative_path})
             return None
+        logger.debug("Artifact resolved", extra={"event": "artifact_resolve_hit", "analysis_id": analysis_id, "relative_path": relative_path})
         return candidate
 
     def _write_text_file(

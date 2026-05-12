@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import copy
+import logging
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from threading import RLock
 from typing import Protocol
+
+
+logger = logging.getLogger(__name__)
 
 
 class AnalysisResultLike(Protocol):
@@ -55,6 +59,7 @@ class InMemoryAnalysisResultRepository(AnalysisResultRepository):
         with self._lock:
             self._store[result_payload.analysis_id] = result_payload
 
+        logger.debug("Stored analysis result", extra={"event": "repository_store", "analysis_id": result_payload.analysis_id})
         return result_payload.analysis_id
 
     def get(self, analysis_id: str) -> AnalysisResultLike | None:
@@ -62,6 +67,8 @@ class InMemoryAnalysisResultRepository(AnalysisResultRepository):
             result = self._store.get(analysis_id)
 
         if result is None:
+            logger.debug("Repository get miss", extra={"event": "repository_get", "analysis_id": analysis_id, "hit": False})
             return None
 
+        logger.debug("Repository get hit", extra={"event": "repository_get", "analysis_id": analysis_id, "hit": True})
         return copy.deepcopy(result)
