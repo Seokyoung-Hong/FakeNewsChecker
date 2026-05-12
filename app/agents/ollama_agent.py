@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from app.agents.base import AnalysisAgent
 from app.agents.local_agent import LocalAgent
 from app.config import OllamaSettings
@@ -30,16 +31,24 @@ class OllamaAnalysisAgent(AnalysisAgent):
         self,
         settings: OllamaSettings,
         fallback_agent: AnalysisAgent | None = None,
+        status_message_callback: Callable[[str], None] | None = None,
     ) -> None:
         self._settings = settings
         self._fallback_agent = fallback_agent or LocalAgent()
         self._text_cache: dict[str, dict[str, object]] = {}
         self._fallback_analysis_ids: set[str] = set()
+        self._status_message_callback = status_message_callback
 
     def reset_cache(self) -> None:
         self._text_cache.clear()
         self._fallback_analysis_ids.clear()
         logger.debug("Reset Ollama agent cache", extra={"event": "ollama_agent_reset_cache"})
+
+    def set_status_message_callback(
+        self,
+        status_message_callback: Callable[[str], None] | None,
+    ) -> None:
+        self._status_message_callback = status_message_callback
 
     def get_overall_summary(self, crawler_output: CrawlerOutput) -> str | None:
         if crawler_output.analysis_id in self._fallback_analysis_ids:
@@ -98,6 +107,7 @@ class OllamaAnalysisAgent(AnalysisAgent):
             url=str(crawler_output.url),
             text=crawler_output.content,
             settings=self._settings,
+            on_failover=self._report_failover_status,
         )
         if not isinstance(result, dict):
             self._fallback_analysis_ids.add(analysis_id)
@@ -112,6 +122,34 @@ class OllamaAnalysisAgent(AnalysisAgent):
         self._fallback_analysis_ids.discard(analysis_id)
         logger.debug("Ollama agent cached text result", extra={"event": "ollama_agent_cache_save", "analysis_id": analysis_id})
         return result
+
+    @staticmethod
+    def _build_failover_message(
+        failed_host: str,
+        next_host: str,
+        next_model: str,
+    ) -> str:
+        del failed_host, next_host
+        return (
+            "1순위 모델 서버 연결에 실패하여 다른 서버를 찾는 중입니다. "
+            f"더 가벼운 모델 {next_model}로 시도합니다"
+        )
+
+    def _report_failover_status(
+        self,
+        failed_host: str,
+        next_host: str,
+        next_model: str,
+    ) -> None:
+        if self._status_message_callback is None:
+            return
+        self._status_message_callback(
+            self._build_failover_message(
+                failed_host=failed_host,
+                next_host=next_host,
+                next_model=next_model,
+            ),
+        )
 
     def _single_result(self, payload: object) -> AnalysisCriterionResult | None:
         if not isinstance(payload, dict):

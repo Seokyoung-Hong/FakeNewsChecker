@@ -101,3 +101,33 @@ class OllamaAnalysisAgentTests(unittest.TestCase):
             _ = agent.get_overall_summary(self.payload)
 
         analyze_text_mock.assert_called_once()
+
+    def test_injects_status_message_callback_into_analyze_text(self) -> None:
+        callback_messages: list[str] = []
+        result_payload = {
+            "overall_summary": {"verdict": "주의 필요", "reasons": ["근거 부족"]},
+            "source_reliability": {"score": 72, "summary": "출처는 보통 수준입니다.", "risk": "medium"},
+            "claim_consistency": {"score": 64, "summary": "주장 정합성은 일부 흔들립니다.", "risk": "medium"},
+            "evidence_quality": {"score": 58, "summary": "근거 제시가 부족합니다.", "risk": "high"},
+            "expression_risk": {"score": 81, "summary": "표현은 비교적 차분합니다.", "risk": "low"},
+        }
+
+        def analyze_text_side_effect(*, on_failover=None, **kwargs: object):
+            del kwargs
+            if callable(on_failover):
+                on_failover("http://primary", "http://backup", "backup-model")
+            return result_payload
+
+        with patch("app.agents.ollama_agent.analyze_text", side_effect=analyze_text_side_effect):
+            assert self.settings is not None
+            assert self.payload is not None
+            agent = OllamaAnalysisAgent(
+                settings=self.settings,
+                status_message_callback=callback_messages.append,
+            )
+            _ = agent.analyze(self.payload, "source_reliability")
+
+        self.assertEqual(
+            callback_messages,
+            ["1순위 모델 서버 연결에 실패하여 다른 서버를 찾는 중입니다. 더 가벼운 모델 backup-model로 시도합니다"],
+        )
