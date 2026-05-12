@@ -111,6 +111,26 @@ def save_hyperbrowser_cache(normalized_url: str, crawler_output: CrawlerOutput) 
     )
 
 
+def load_local_browser_cache(normalized_url: str, analysis_id: str) -> CrawlerOutput | None:
+    payload = _load_ttl_payload("local-browser", normalized_url, _DEFAULT_CACHE_TTL)
+    if not isinstance(payload, dict):
+        return None
+
+    try:
+        cached = CrawlerOutput.model_validate(payload)
+    except Exception:
+        return None
+    return cached.model_copy(update={"analysis_id": analysis_id})
+
+
+def save_local_browser_cache(normalized_url: str, crawler_output: CrawlerOutput) -> None:
+    _save_ttl_payload(
+        "local-browser",
+        normalized_url,
+        crawler_output.model_dump(mode="json"),
+    )
+
+
 def load_hive_cache(image_urls: tuple[str, ...]) -> dict[str, object] | None:
     cache_key = "\n".join(image_urls)
     payload = _load_ttl_payload("hive", cache_key, _DEFAULT_CACHE_TTL)
@@ -127,6 +147,8 @@ def save_hive_cache(image_urls: tuple[str, ...], result: dict[str, object]) -> N
 __all__ = [
     "load_hive_cache",
     "load_hyperbrowser_cache",
+    "load_local_browser_cache",
     "save_hive_cache",
     "save_hyperbrowser_cache",
+    "save_local_browser_cache",
 ]

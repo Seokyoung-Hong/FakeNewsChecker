@@ -11,10 +11,20 @@ from typing import Protocol
 from uuid import NAMESPACE_URL, uuid5
 from urllib.parse import urlparse, urlsplit, urlunsplit
 
-from app.cache_store import load_hyperbrowser_cache, save_hyperbrowser_cache
+from app.cache_store import (
+    load_hyperbrowser_cache,
+    load_local_browser_cache,
+    save_hyperbrowser_cache,
+    save_local_browser_cache,
+)
 from app.services.hyperbrowser_client import (
     HyperbrowserClientError,
     HyperbrowserDownloadResult,
+)
+from app.services.local_browser_client import (
+    LocalBrowserClientError,
+    LocalBrowserDownloadResult,
+    _is_safe_public_target,
 )
 from app.schemas import CrawlerOutput, URLSubmission
 
@@ -65,6 +75,10 @@ class HyperbrowserCrawlerError(RuntimeError):
 
 class _HyperbrowserClientProtocol(Protocol):
     def download(self, url: str) -> HyperbrowserDownloadResult: ...
+
+
+class _LocalBrowserClientProtocol(Protocol):
+    def download(self, url: str) -> LocalBrowserDownloadResult: ...
 
 
 class DeterministicCrawlerService(CrawlerService):
@@ -125,6 +139,10 @@ class HyperbrowserCrawlerService(CrawlerService):
 
     def collect(self, submission: URLSubmission) -> CrawlerOutput:
         original_url = str(submission.url)
+        if not _is_safe_public_target(original_url):
+            raise LocalBrowserCrawlerError(
+                "Local browser crawling is limited to safe public http/https targets."
+            )
         normalized_url = _normalize_url(original_url)
         analysis_id = str(uuid5(NAMESPACE_URL, normalized_url))
 
@@ -200,6 +218,108 @@ class HyperbrowserCrawlerService(CrawlerService):
         return ""
 
 
+class LocalBrowserCrawlerError(RuntimeError):
+    """Raised when the local browser crawler cannot produce valid output."""
+
+
+class LocalBrowserCrawlerService(CrawlerService):
+    """Real crawler implementation backed by a local browser session."""
+
+    _client: _LocalBrowserClientProtocol
+
+    def __init__(self, client: _LocalBrowserClientProtocol) -> None:
+        self._client = client
+
+    def collect(self, submission: URLSubmission) -> CrawlerOutput:
+        original_url = str(submission.url)
+        if not _is_safe_public_target(original_url):
+            raise LocalBrowserCrawlerError(
+                "Local browser crawling is limited to safe public http/https targets."
+            )
+        normalized_url = _normalize_url(original_url)
+        analysis_id = str(uuid5(NAMESPACE_URL, normalized_url))
+
+        cached = load_local_browser_cache(normalized_url, analysis_id)
+        if cached is not None:
+            logger.debug(
+                "Local browser crawler cache hit",
+                extra={
+                    "event": "local_browser_cache_hit",
+                    "analysis_id": analysis_id,
+                    "canonical_url": normalized_url,
+                },
+            )
+            return cached.model_copy(update={"url": submission.url})
+        logger.debug(
+            "Local browser crawler cache miss",
+            extra={
+                "event": "local_browser_cache_miss",
+                "analysis_id": analysis_id,
+                "canonical_url": normalized_url,
+            },
+        )
+
+        try:
+            downloaded = self._client.download(original_url)
+        except LocalBrowserClientError as exc:
+            logger.warning(
+                "Local browser download failed",
+                extra={
+                    "event": "local_browser_collect_failed",
+                    "canonical_url": normalized_url,
+                    "exception_class": type(exc).__name__,
+                },
+            )
+            raise LocalBrowserCrawlerError(str(exc)) from exc
+
+        parsed = urlparse(downloaded.final_url or original_url)
+        title = HyperbrowserCrawlerService._first_non_empty(
+            downloaded.title,
+            HyperbrowserCrawlerService._slug_title(parsed),
+        )
+        content = HyperbrowserCrawlerService._as_string(downloaded.content)
+        if not content:
+            raise LocalBrowserCrawlerError(
+                "Local browser crawler could not extract article content."
+            )
+
+        metadata = downloaded.metadata.copy()
+        metadata.update(
+            {
+                "provider": str(metadata.get("provider") or "playwright-local"),
+                "normalized_url": normalized_url,
+                "requested_url": original_url,
+                "final_url": downloaded.final_url,
+                "host": parsed.hostname or "unknown-host",
+                "path": parsed.path,
+                "query": parsed.query,
+                "scheme": parsed.scheme,
+                "images_found": len(downloaded.images),
+            }
+        )
+
+        crawler_output = CrawlerOutput(
+            analysis_id=analysis_id,
+            url=submission.url,
+            title=title,
+            content=content,
+            images=downloaded.images,
+            metadata=metadata,
+        )
+        save_local_browser_cache(normalized_url, crawler_output)
+        logger.debug(
+            "Local browser crawler collected output",
+            extra={
+                "event": "crawler_collect_local_browser",
+                "analysis_id": analysis_id,
+                "final_url": downloaded.final_url,
+                "image_count": len(downloaded.images),
+                "content_length": len(crawler_output.content),
+            },
+        )
+        return crawler_output
+
+
 class PrefixedCrawlerService(CrawlerService):
     """Wrap another crawler and namespace the produced analysis ID."""
 
@@ -227,6 +347,8 @@ __all__ = [
     "DeterministicCrawlerService",
     "HyperbrowserCrawlerError",
     "HyperbrowserCrawlerService",
+    "LocalBrowserCrawlerError",
+    "LocalBrowserCrawlerService",
     "PrefixedCrawlerService",
 ]
 
