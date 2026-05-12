@@ -159,6 +159,7 @@ venv.bak/
 
 # Runtime crawl artifacts
 downloaded_news/
+.playwright-mcp/
 
 # Spyder project settings
 .spyderproject
