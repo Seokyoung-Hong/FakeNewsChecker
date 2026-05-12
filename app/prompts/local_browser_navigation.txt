@@ -1,0 +1,16 @@
+You are selecting the next navigation action to reach a news article body.
+Return only valid JSON matching the schema.
+
+Current URL: $current_url
+Current title: $current_title
+Current visible text excerpt:
+$excerpt
+
+Candidate targets:
+$candidate_lines
+
+Rules:
+- Prefer opening a candidate that looks like a specific article headline.
+- Avoid generic navigation, live blogs, category pages, sign-in, video, audio, and newsletters when possible.
+- If no candidate appears promising, choose finish.
+- action must be one of open_target, scroll, finish.

@@ -15,6 +15,7 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError
 
 from app.config import OllamaSettings
+from app.prompt_loader import load_prompt
 
 
 logger = logging.getLogger(__name__)
@@ -536,19 +537,12 @@ def _build_navigation_prompt(
         for candidate in candidates
     ]
     excerpt = _normalize_multiline(snapshot.article_text)[:1200]
-    return (
-        "You are selecting the next navigation action to reach a news article body.\n"
-        "Return only valid JSON matching the schema.\n\n"
-        f"Current URL: {snapshot.final_url}\n"
-        f"Current title: {snapshot.title}\n"
-        f"Current visible text excerpt:\n{excerpt}\n\n"
-        "Candidate targets:\n"
-        + "\n".join(candidate_lines)
-        + "\n\nRules:\n"
-        "- Prefer opening a candidate that looks like a specific article headline.\n"
-        "- Avoid generic navigation, live blogs, category pages, sign-in, video, audio, and newsletters when possible.\n"
-        "- If no candidate appears promising, choose finish.\n"
-        "- action must be one of open_target, scroll, finish.\n"
+    return load_prompt(
+        "local_browser_navigation",
+        current_url=snapshot.final_url,
+        current_title=snapshot.title,
+        excerpt=excerpt,
+        candidate_lines="\n".join(candidate_lines),
     )
 
 
@@ -566,7 +560,7 @@ def _request_structured_navigation_action(
         "format": _NavigationActionPayload.model_json_schema(),
         "options": {"temperature": 0},
         "messages": [
-            {"role": "system", "content": "Return only valid JSON matching the provided schema."},
+            {"role": "system", "content": load_prompt("structured_json_system")},
             {"role": "user", "content": prompt},
         ],
     }

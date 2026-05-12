@@ -7,6 +7,7 @@ from typing import Any, cast
 from unittest.mock import patch
 
 from app.services.local_browser_client import _assess_extraction_quality
+from app.services.local_browser_client import _build_navigation_prompt
 from app.services.local_browser_client import _NavigationCandidate
 from app.services.local_browser_client import _NavigationActionPayload
 from app.services.local_browser_client import _PageSnapshotPayload
@@ -79,6 +80,39 @@ class DeterministicCrawlerServiceTests(unittest.TestCase):
         self.assertTrue(first.content)
         self.assertIsInstance(first.images, list)
         self.assertIsInstance(first.metadata, dict)
+
+    def test_navigation_prompt_loads_from_prompt_dir(self) -> None:
+        snapshot = _PageSnapshotPayload(
+            title="기사 제목",
+            final_url="https://example.com/article",
+            article_text="본문 미리보기입니다.",
+        )
+        candidates = [
+            _NavigationCandidate(
+                index=1,
+                text="기사 링크",
+                href="https://example.com/article/1",
+                score_hint=42,
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prompt_dir = Path(temp_dir)
+            (prompt_dir / "local_browser_navigation.txt").write_text(
+                "URL=$current_url\nTITLE=$current_title\nEXCERPT=$excerpt\nCANDIDATES=$candidate_lines",
+                encoding="utf-8",
+            )
+
+            with patch.dict("os.environ", {"PROMPT_DIR": temp_dir}, clear=False):
+                prompt = _build_navigation_prompt(snapshot=snapshot, candidates=candidates)
+
+        self.assertEqual(
+            prompt,
+            "URL=https://example.com/article\n"
+            "TITLE=기사 제목\n"
+            "EXCERPT=본문 미리보기입니다.\n"
+            "CANDIDATES=- index=1 score_hint=42 text=기사 링크 href=https://example.com/article/1",
+        )
 
     def test_collect_preserves_path_case_in_analysis_identifier(self) -> None:
         service = DeterministicCrawlerService()
