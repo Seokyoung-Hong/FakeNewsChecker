@@ -51,7 +51,7 @@ class ClaudeAnalyzerTests(unittest.TestCase):
         self.assertIn("evidence_quality", result)
         self.assertNotIn("multimodal_risk", result)
 
-    def test_logs_raw_response_and_uses_current_contract(self) -> None:
+    def test_logs_metadata_and_uses_current_contract(self) -> None:
         response_text = """{
           \"overall_summary\": {\"verdict\": \"주의 필요\", \"reasons\": [\"근거 부족\"]},
           \"source_reliability\": {\"score\": 80, \"summary\": \"출처 보통\"},
@@ -68,7 +68,7 @@ class ClaudeAnalyzerTests(unittest.TestCase):
 
         claim = cast(dict[str, object], result["claim_consistency"])
         self.assertEqual(claim["score"], 65)
-        self.assertTrue(any("Gemini raw response" in message for message in logs.output))
+        self.assertTrue(any("Gemini response received" in message for message in logs.output))
         assert fake_module.last_client is not None
         last_call = fake_module.last_client.models.last_call
         assert last_call is not None

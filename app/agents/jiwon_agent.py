@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+import logging
+from urllib.parse import urljoin
 
 from app.agents.base import AnalysisAgent
 from app.agents.local_agent import LocalAgent
 from app.claude_analyzer import analyze_text
 from app.hive_analyzer import analyze_images
 from app.schemas import AnalysisCriterionResult, CrawlerOutput
+
+
+logger = logging.getLogger(__name__)
 
 
 class JiwonAnalysisAgent(AnalysisAgent):
@@ -32,6 +37,7 @@ class JiwonAnalysisAgent(AnalysisAgent):
     def reset_cache(self) -> None:
         self._text_cache.clear()
         self._image_cache.clear()
+        logger.debug("Reset Jiwon agent cache", extra={"event": "jiwon_agent_reset_cache"})
 
     def get_overall_summary(self, crawler_output: CrawlerOutput) -> str | None:
         text_result = self._text_result(crawler_output)
@@ -63,6 +69,7 @@ class JiwonAnalysisAgent(AnalysisAgent):
 
         text_result = self._text_result(crawler_output)
         if text_result is None:
+            logger.debug("Jiwon agent text fallback used", extra={"event": "jiwon_agent_text_fallback", "analysis_id": crawler_output.analysis_id, "criterion": criterion})
             return self._fallback_agent.analyze(crawler_output, criterion)
 
         if criterion == "source_reliability":
@@ -94,6 +101,7 @@ class JiwonAnalysisAgent(AnalysisAgent):
         analysis_id = crawler_output.analysis_id
         cached = self._text_cache.get(analysis_id)
         if cached is not None:
+            logger.debug("Jiwon text cache hit", extra={"event": "jiwon_agent_text_cache_hit", "analysis_id": analysis_id})
             return cached
 
         try:
@@ -103,14 +111,18 @@ class JiwonAnalysisAgent(AnalysisAgent):
                 text=crawler_output.content,
             )
         except Exception:  # noqa: BLE001
+            logger.debug("Jiwon text analysis raised exception", extra={"event": "jiwon_agent_text_exception", "analysis_id": analysis_id})
             return None
 
         if not isinstance(result, dict):
+            logger.debug("Jiwon text result invalid", extra={"event": "jiwon_agent_text_invalid", "analysis_id": analysis_id})
             return None
         if self._is_text_unavailable_result(result):
+            logger.debug("Jiwon text unavailable result", extra={"event": "jiwon_agent_text_unavailable", "analysis_id": analysis_id})
             return None
 
         self._text_cache[analysis_id] = result
+        logger.debug("Jiwon text cache save", extra={"event": "jiwon_agent_text_cache_save", "analysis_id": analysis_id})
         return result
 
     def _multimodal_result(self, crawler_output: CrawlerOutput) -> AnalysisCriterionResult:
@@ -120,14 +132,20 @@ class JiwonAnalysisAgent(AnalysisAgent):
             try:
                 result = analyze_images(self._preferred_image_urls(crawler_output))
             except Exception:  # noqa: BLE001
+                logger.debug("Jiwon image analysis raised exception", extra={"event": "jiwon_agent_image_exception", "analysis_id": analysis_id})
                 return self._fallback_agent.analyze(crawler_output, "multimodal_risk")
 
             if not isinstance(result, dict):
+                logger.debug("Jiwon image result invalid", extra={"event": "jiwon_agent_image_invalid", "analysis_id": analysis_id})
                 return self._fallback_agent.analyze(crawler_output, "multimodal_risk")
             if self._is_image_unavailable_result(result):
+                logger.debug("Jiwon image unavailable result", extra={"event": "jiwon_agent_image_unavailable", "analysis_id": analysis_id})
                 return self._fallback_agent.analyze(crawler_output, "multimodal_risk")
             self._image_cache[analysis_id] = result
             cached = result
+            logger.debug("Jiwon image cache save", extra={"event": "jiwon_agent_image_cache_save", "analysis_id": analysis_id})
+        else:
+            logger.debug("Jiwon image cache hit", extra={"event": "jiwon_agent_image_cache_hit", "analysis_id": analysis_id})
 
         criterion_result = self._single_result(cached)
         if criterion_result is None:
@@ -230,6 +248,11 @@ class JiwonAnalysisAgent(AnalysisAgent):
 
     @staticmethod
     def _preferred_image_urls(crawler_output: CrawlerOutput) -> list[str]:
+        normalized_images = [item.strip() for item in crawler_output.images if isinstance(item, str) and item.strip()]
+        if normalized_images:
+            logger.debug("Jiwon preferred crawler image URLs", extra={"event": "jiwon_agent_preferred_images", "analysis_id": crawler_output.analysis_id, "image_count": len(normalized_images), "source": "crawler_output.images"})
+            return normalized_images
+
         structured = crawler_output.metadata.get("structured_data")
         image_urls: object = None
         if isinstance(structured, dict):
@@ -238,10 +261,16 @@ class JiwonAnalysisAgent(AnalysisAgent):
             image_urls = getattr(structured, "image_urls", None)
 
         if isinstance(image_urls, list):
-            normalized = [item.strip() for item in image_urls if isinstance(item, str) and item.strip()]
+            source_url = str(crawler_output.metadata.get("source_url") or crawler_output.url)
+            normalized = [
+                urljoin(source_url, item.strip())
+                for item in image_urls
+                if isinstance(item, str) and item.strip()
+            ]
             if normalized:
+                logger.debug("Jiwon preferred normalized structured image URLs", extra={"event": "jiwon_agent_preferred_images", "analysis_id": crawler_output.analysis_id, "image_count": len(normalized), "source": "structured_data"})
                 return normalized
-        return list(crawler_output.images)
+        return normalized_images
 
 
 __all__ = ["JiwonAnalysisAgent"]

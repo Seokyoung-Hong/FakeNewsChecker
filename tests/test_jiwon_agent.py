@@ -178,6 +178,28 @@ class JiwonAnalysisAgentTests(unittest.TestCase):
 
         self.assertNotEqual(result.summary, "Hive API 키가 없어 이미지 분석을 건너뜁니다.")
 
+    def test_prefers_normalized_crawler_images_over_raw_structured_urls(self) -> None:
+        payload = CrawlerOutput(
+            analysis_id="analysis-1",
+            url=URLSubmission.model_validate({"url": "https://example.com/article"}).url,
+            title="기사 제목",
+            content="기사 본문",
+            images=["https://cdn.example.com/absolute-image.jpg"],
+            metadata={
+                "source_url": "https://example.com/article",
+                "structured_data": {"image_urls": ["thumb.jpg"]},
+            },
+        )
+
+        with patch(
+            "app.agents.jiwon_agent.analyze_images",
+            return_value={"score": 77, "summary": "이미지 조작 가능성은 낮습니다.", "risk": "low"},
+        ) as analyze_images_mock:
+            agent = JiwonAnalysisAgent()
+            _ = agent.analyze(payload, "multimodal_risk")
+
+        analyze_images_mock.assert_called_once_with(["https://cdn.example.com/absolute-image.jpg"])
+
 
 if __name__ == "__main__":
     unittest.main()

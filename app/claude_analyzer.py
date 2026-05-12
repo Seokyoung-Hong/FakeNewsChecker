@@ -21,6 +21,7 @@ def _import_genai() -> Any | None:
     try:
         return import_module("google.genai")
     except ModuleNotFoundError:
+        LOGGER.debug("google.genai module is not available", extra={"event": "gemini_module_missing"})
         return None
 
 
@@ -80,6 +81,7 @@ def _legacy_text_result_bridge(payload: dict[str, object]) -> None:
 def analyze_text(title: str, url: str, text: str) -> dict[str, object]:
     genai_module = _import_genai()
     if not GEMINI_API_KEY or genai_module is None:
+        LOGGER.debug("Gemini text analysis fallback used", extra={"event": "gemini_fallback", "has_api_key": bool(GEMINI_API_KEY), "has_module": genai_module is not None})
         return _fallback_text_result()
 
     client = genai_module.Client(api_key=GEMINI_API_KEY)
@@ -131,7 +133,7 @@ overall_summary의 reasons는 판정의 핵심 근거만 적어라."""
     )
 
     raw = response.text.strip()
-    LOGGER.debug("Gemini raw response: %s", raw)
+    LOGGER.debug("Gemini response received", extra={"event": "gemini_response_received", "url": url, "response_length": len(raw)})
 
     try:
         payload = json.loads(raw)
@@ -148,7 +150,7 @@ overall_summary의 reasons는 판정의 핵심 근거만 적어라."""
         {"verdict": "주의 필요", "reasons": [_UNAVAILABLE_TEXT_SUMMARY]},
     )
 
-    LOGGER.debug("Gemini parsed payload keys for url=%s: %s", url, list(payload.keys()))
+    LOGGER.debug("Gemini parsed payload", extra={"event": "gemini_payload_parsed", "url": url, "payload_keys": list(payload.keys())})
     return payload
 
 
