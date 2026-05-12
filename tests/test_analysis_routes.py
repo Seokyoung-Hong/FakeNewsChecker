@@ -48,12 +48,36 @@ class _FakeAnalysisService:
 
 
 class _ProgressAwareFakeAnalysisService(_FakeAnalysisService):
-    def run(self, submission: URLSubmission, progress_callback=None) -> AnalysisResult:
+    def run(
+        self,
+        submission: URLSubmission,
+        progress_callback=None,
+        status_message_callback=None,
+    ) -> AnalysisResult:
         if callable(progress_callback):
             progress_callback("body_collection")
             progress_callback("source_check")
             progress_callback("ai_analysis")
             progress_callback("report_build")
+        if callable(status_message_callback):
+            status_message_callback("테스트 메시지")
+        return super().run(submission)
+
+
+class _FailoverProgressAwareFakeAnalysisService(_FakeAnalysisService):
+    def run(
+        self,
+        submission: URLSubmission,
+        progress_callback=None,
+        status_message_callback=None,
+    ) -> AnalysisResult:
+        if callable(progress_callback):
+            progress_callback("body_collection")
+            progress_callback("source_check")
+            progress_callback("ai_analysis")
+            progress_callback("report_build")
+        if callable(status_message_callback):
+            status_message_callback("1순위 모델 서버 연결에 실패하여 다른 서버를 찾는 중입니다. 더 가벼운 모델 qwen3.5-fallback로 시도합니다")
         return super().run(submission)
 
 
@@ -79,8 +103,8 @@ class AnalysisSubmissionRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("검증하고 싶은 뉴스", response.text)
-        self.assertIn("Start verification", response.text)
-        self.assertIn("What happens next", response.text)
+        self.assertIn("검증하기", response.text)
+        self.assertIn("진행 단계가 바뀌면", response.text)
         self.assertIn('id="form-error-summary"', response.text)
         self.assertIn('id="loading-error-message"', response.text)
 
@@ -169,10 +193,37 @@ class AnalysisSubmissionRouteTests(unittest.TestCase):
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["redirect_url"], "/analysis/online-1")
         self.assertEqual(payload["stage"], "report_build")
+        self.assertIn("status_message", payload)
+        self.assertEqual(payload["status_message"], "테스트 메시지")
 
         status_response = client.get(payload["status_url"])
         self.assertEqual(status_response.status_code, 200)
         self.assertEqual(status_response.json()["status"], "completed")
+        self.assertEqual(status_response.json()["status_message"], "테스트 메시지")
+
+    def test_start_analysis_status_payload_exposes_failover_status_updates(self) -> None:
+        repository = InMemoryAnalysisResultRepository()
+        app.dependency_overrides[get_active_analysis_service] = lambda: _FailoverProgressAwareFakeAnalysisService("online-1")
+        app.dependency_overrides[get_active_analysis_repository] = lambda: repository
+        with patch("app.routers.analysis.Thread", _ImmediateThread):
+            client = TestClient(app)
+            response = client.post("/analysis/start", data={"url": "https://example.com/article"})
+
+        self.assertEqual(response.status_code, 202)
+        payload = response.json()
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(
+            payload["status_message"],
+            "1순위 모델 서버 연결에 실패하여 다른 서버를 찾는 중입니다. 더 가벼운 모델 qwen3.5-fallback로 시도합니다",
+        )
+
+        status_response = client.get(payload["status_url"])
+        status_payload = status_response.json()
+        self.assertEqual(status_payload["status"], "completed")
+        self.assertEqual(
+            status_payload["status_message"],
+            "1순위 모델 서버 연결에 실패하여 다른 서버를 찾는 중입니다. 더 가벼운 모델 qwen3.5-fallback로 시도합니다",
+        )
 
     def test_start_local_model_returns_progress_payload(self) -> None:
         repository = InMemoryAnalysisResultRepository()

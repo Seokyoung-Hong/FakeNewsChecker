@@ -44,6 +44,7 @@ def _run_analysis_job(
         result = analysis_service.run(
             submission,
             progress_callback=lambda stage: progress_store.update_stage(job_id, stage),
+            status_message_callback=lambda message: progress_store.update_status_message(job_id, message),
         )
         analysis_id = repository.create(result)
     except Exception as exc:
