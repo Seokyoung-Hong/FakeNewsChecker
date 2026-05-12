@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from collections.abc import Callable
 
 from app.agents.base import AnalysisAgent
 from app.analyzers.base import BaseAnalyzer
@@ -178,6 +179,46 @@ class DeterministicAnalysisServiceTests(unittest.TestCase):
         )
 
         self.assertEqual(analysis_output.overall_summary, "LLM 핵심 근거: 근거 부족")
+
+    def test_run_reports_progress_stages_in_order(self) -> None:
+        artifact_store = _FakeArtifactStore()
+        resettable_agent = _ResettableAgent()
+        service = DeterministicAnalysisService(
+            crawler_service=_FakeCrawlerService(),
+            analyzers=[
+                _FakeAnalyzer("source_reliability"),
+                _FakeAnalyzer("claim_consistency"),
+                _FakeAnalyzer("expression_risk"),
+                _FakeAnalyzer("multimodal_risk"),
+            ],
+            scoring_service=_FakeScoringService(),
+            report_service=_FakeReportService(),
+            evidence_agent=resettable_agent,
+            artifact_store=artifact_store,
+        )
+
+        for analyzer in service._analyzers:
+            analyzer._agent = resettable_agent
+
+        stages: list[str] = []
+
+        def progress_callback(stage: str) -> None:
+            stages.append(stage)
+
+        _ = service.run(
+            URLSubmission.model_validate({"url": "https://example.com/article"}),
+            progress_callback=progress_callback,
+        )
+
+        self.assertEqual(
+            stages,
+            [
+                "body_collection",
+                "source_check",
+                "ai_analysis",
+                "report_build",
+            ],
+        )
 
 
 if __name__ == "__main__":
