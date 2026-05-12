@@ -6,9 +6,12 @@ from typing import cast
 from unittest.mock import patch
 
 from app import dependencies
+from app.agents.ollama_agent import OllamaAnalysisAgent
+from app.services.analysis_service import DeterministicAnalysisService
 from app.services.crawler_service import (
     DeterministicCrawlerService,
     HyperbrowserCrawlerService,
+    PrefixedCrawlerService,
 )
 from app.services.hyperbrowser_client import HyperbrowserClient
 
@@ -19,12 +22,16 @@ class DependencySelectionTests(unittest.TestCase):
         dependencies.get_crawl_artifact_store.cache_clear()
         dependencies.get_crawler_service.cache_clear()
         dependencies.get_analysis_service.cache_clear()
+        dependencies.get_local_analysis_service.cache_clear()
+        dependencies.get_ollama_settings.cache_clear()
 
     def tearDown(self) -> None:
         dependencies.get_crawler_settings.cache_clear()
         dependencies.get_crawl_artifact_store.cache_clear()
         dependencies.get_crawler_service.cache_clear()
         dependencies.get_analysis_service.cache_clear()
+        dependencies.get_local_analysis_service.cache_clear()
+        dependencies.get_ollama_settings.cache_clear()
 
     def test_deterministic_provider_is_default(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
@@ -62,6 +69,15 @@ class DependencySelectionTests(unittest.TestCase):
         with patch.dict(os.environ, env, clear=True):
             with self.assertRaises(ValueError):
                 dependencies.get_crawler_service()
+
+    def test_local_analysis_service_uses_prefixed_crawler_and_ollama_agent(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            service = cast(DeterministicAnalysisService, dependencies.get_local_analysis_service())
+
+        self.assertIsInstance(service._crawler_service, PrefixedCrawlerService)
+        prefixed_crawler = cast(PrefixedCrawlerService, service._crawler_service)
+        self.assertEqual(prefixed_crawler._prefix, "local-")
+        self.assertIsInstance(service._evidence_agent, OllamaAnalysisAgent)
 
 
 if __name__ == "__main__":
