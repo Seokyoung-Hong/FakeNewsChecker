@@ -1,5 +1,6 @@
 """Application bootstrap for the FastAPI app."""
 
+import contextlib
 import os
 import logging
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from .mcp_server import create_crawl_mcp_server
 from .routers.analysis import router as analysis_router
 from .routers.page import router as page_router
 
@@ -68,10 +70,26 @@ def create_app() -> FastAPI:
     """
 
     configure_logging()
-    app = FastAPI(title="Fake News Verification API")
+    mcp_server = create_crawl_mcp_server()
+    mcp_app = None
+    if mcp_server is not None:
+        mcp_app = mcp_server.streamable_http_app(json_response=True)
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app: FastAPI):
+        del app
+        if mcp_server is None:
+            yield
+            return
+        async with mcp_server.session_manager.run():
+            yield
+
+    app = FastAPI(title="Fake News Verification API", lifespan=lifespan)
     static_dir = Path(__file__).resolve().parent / "static"
 
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    if mcp_app is not None:
+        app.mount("/mcp/crawl", mcp_app)
     app.include_router(page_router)
     app.include_router(analysis_router)
     logger.debug(
@@ -79,6 +97,7 @@ def create_app() -> FastAPI:
         extra={
             "event": "app_create",
             "static_dir": str(static_dir),
+            "has_crawl_mcp": mcp_app is not None,
             "routers": ["page_router", "analysis_router"],
         },
     )
