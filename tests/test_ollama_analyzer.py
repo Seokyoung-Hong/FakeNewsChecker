@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import unittest
 from collections.abc import Mapping
+from pathlib import Path
 from types import TracebackType
 from typing import cast, final
 from unittest.mock import patch
@@ -88,6 +91,43 @@ class OllamaAnalyzerTests(unittest.TestCase):
         self.assertIsInstance(json_payload, dict)
         assert isinstance(json_payload, dict)
         self.assertEqual(json_payload["stream"], True)
+
+    def test_loads_system_and_user_prompts_from_prompt_dir(self) -> None:
+        payload = {
+            "overall_summary": {"verdict": "주의 필요", "reasons": ["근거 부족"]},
+            "source_reliability": {"score": 72, "summary": "출처는 보통 수준입니다.", "risk": "medium"},
+            "claim_consistency": {"score": 64, "summary": "주장 정합성은 일부 흔들립니다.", "risk": "medium"},
+            "evidence_quality": {"score": 58, "summary": "근거 제시가 부족합니다.", "risk": "high"},
+            "expression_risk": {"score": 81, "summary": "표현은 비교적 차분합니다.", "risk": "low"},
+        }
+        response_lines = _response_lines_for(payload)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prompt_dir = Path(temp_dir)
+            (prompt_dir / "structured_json_system.txt").write_text("SYSTEM ONLY", encoding="utf-8")
+            (prompt_dir / "ollama_text.txt").write_text("제목=$title URL=$url 본문=$text", encoding="utf-8")
+
+            with patch.dict(os.environ, {"PROMPT_DIR": temp_dir}, clear=False):
+                with patch(
+                    "app.ollama_analyzer.httpx.stream",
+                    return_value=_FakeStreamContext(_FakeStreamResponse(response_lines)),
+                ) as stream_mock:
+                    _ = analyze_text(
+                        title="기사 제목",
+                        url="https://example.com/article",
+                        text="기사 본문",
+                        settings=OllamaSettings(),
+                    )
+
+        call_args = stream_mock.call_args
+        assert call_args is not None
+        request_kwargs = cast(dict[str, object], call_args.kwargs)
+        json_payload = request_kwargs["json"]
+        assert isinstance(json_payload, dict)
+        messages = json_payload["messages"]
+        assert isinstance(messages, list)
+        self.assertEqual(messages[0], {"role": "system", "content": "SYSTEM ONLY"})
+        self.assertEqual(messages[1], {"role": "user", "content": "제목=기사 제목 URL=https://example.com/article 본문=기사 본문"})
 
     def test_falls_back_to_secondary_host_when_primary_is_unavailable(self) -> None:
         payload = {

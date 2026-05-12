@@ -8,6 +8,7 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError
 
 from app.config import OllamaSettings
+from app.prompt_loader import load_prompt
 
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,7 @@ def _request_text_analysis(
         "format": _OllamaAnalysisPayload.model_json_schema(),
         "options": {"temperature": 0},
         "messages": [
-            {"role": "system", "content": "Return only valid JSON matching the provided schema."},
+            {"role": "system", "content": load_prompt("structured_json_system")},
             {"role": "user", "content": _build_prompt(title=title, url=url, text=text)},
         ],
     }
@@ -110,38 +111,12 @@ def _request_text_analysis(
 
 
 def _build_prompt(*, title: str, url: str, text: str) -> str:
-    return f"""너는 텍스트 기반 가짜뉴스 판별 도우미야. 아래 콘텐츠가 허위이거나, 과장되었거나, 오해를 유발할 가능성이 있는지 분석해줘.
-
-제목: {title}
-URL: {url}
-본문:
-{text[:3000]}
-
-중요 규칙:
-- 학습 데이터에 없다는 이유만으로 허위라고 단정하지 마.
-- 확인 가능한 근거 부족, 주장 모순, 맥락 왜곡, 과장·선동 표현은 강한 감점 요인이다.
-- 판별 대상은 기사/게시글의 가짜뉴스 가능성이다.
-- 본문에 없는 사람의 직함, 기관명, 사건 전개를 추정해서 보정하지 마.
-- 원문에 없는 사실을 채워 넣지 말고, 불확실하면 불확실하다고 적어라.
-- 일반적인 정치 기사나 속보 기사라는 이유만으로 과도하게 감점하지 마. 실제 본문에 드러난 근거와 표현만 기준으로 판단해라.
-- 특정 주장에 대한 외부 검증이 본문에 부족하더라도, 곧바로 허위라고 단정하지 말고 "검증 근거 부족" 수준으로 표현해라.
-- 아래 JSON 형식으로만 응답해. 다른 말은 절대 하지 마.
-
-응답 JSON 스키마:
-{{
-  "overall_summary": {{
-    "verdict": "신뢰 가능 / 주의 필요 / 의심 필요 / 가짜뉴스 가능성 높음 중 하나",
-    "reasons": ["핵심 근거 1", "핵심 근거 2", "핵심 근거 3"]
-  }},
-  "source_reliability": {{"score": 0에서 100 사이 정수, "summary": "한국어 2문장 설명", "risk": "low|medium|high"}},
-  "claim_consistency": {{"score": 0에서 100 사이 정수, "summary": "한국어 2문장 설명", "risk": "low|medium|high"}},
-  "evidence_quality": {{"score": 0에서 100 사이 정수, "summary": "한국어 2문장 설명", "risk": "low|medium|high"}},
-  "expression_risk": {{"score": 0에서 100 사이 정수, "summary": "한국어 2문장 설명", "risk": "low|medium|high"}}
-}}
-
-점수 기준:
-- 100 = 가짜뉴스 가능성이 매우 낮음
-- 0 = 가짜뉴스 가능성이 매우 높음"""
+    return load_prompt(
+        "ollama_text",
+        title=title,
+        url=url,
+        text=text[:3000],
+    )
 
 
 def analyze_text(
