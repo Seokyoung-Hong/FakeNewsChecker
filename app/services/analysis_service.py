@@ -42,6 +42,7 @@ class AnalysisService(ABC):
         self,
         submission: URLSubmission,
         progress_callback: Callable[[str], None] | None = None,
+        status_message_callback: Callable[[str], None] | None = None,
     ) -> AnalysisResult:
         """Run crawler/analysis/scoring/report for one URL submission."""
 
@@ -76,6 +77,7 @@ class DeterministicAnalysisService(AnalysisService):
         self,
         submission: URLSubmission,
         progress_callback: Callable[[str], None] | None = None,
+        status_message_callback: Callable[[str], None] | None = None,
     ) -> AnalysisResult:
         """Execute deterministic, network-free full pipeline."""
 
@@ -85,7 +87,11 @@ class DeterministicAnalysisService(AnalysisService):
             progress_callback(STAGE_BODY_COLLECTION)
         crawler_output = self._crawler_service.collect(submission)
         artifacts = self._persist_artifacts(crawler_output)
-        analysis_output = self._run_analysis(crawler_output, progress_callback=progress_callback)
+        analysis_output = self._run_analysis(
+            crawler_output,
+            progress_callback=progress_callback,
+            status_message_callback=status_message_callback,
+        )
         if progress_callback is not None:
             progress_callback(STAGE_REPORT_BUILD)
         scoring_output = self._scoring_service.score(analysis_output)
@@ -126,7 +132,7 @@ class DeterministicAnalysisService(AnalysisService):
             seen.add(marker)
             reset = getattr(agent, "reset_cache", None)
             if callable(reset):
-                reset()
+                _ = reset()
         logger.debug("Reset analysis agent caches", extra={"event": "analysis_agents_reset", "agent_count": len(seen)})
 
     def _persist_artifacts(
@@ -144,8 +150,13 @@ class DeterministicAnalysisService(AnalysisService):
         self,
         crawler_output: CrawlerOutput,
         progress_callback: Callable[[str], None] | None = None,
+        status_message_callback: Callable[[str], None] | None = None,
     ) -> AnalysisOutput:
-        criterion_results = self._run_analyzers(crawler_output, progress_callback=progress_callback)
+        criterion_results = self._run_analyzers(
+            crawler_output,
+            progress_callback=progress_callback,
+            status_message_callback=status_message_callback,
+        )
         criteria: Mapping[str, AnalysisCriterionResult] = self._ensure_complete_criteria(
             criterion_results,
             crawler_output,
@@ -166,7 +177,9 @@ class DeterministicAnalysisService(AnalysisService):
         self,
         crawler_output: CrawlerOutput,
         progress_callback: Callable[[str], None] | None = None,
+        status_message_callback: Callable[[str], None] | None = None,
     ) -> dict[str, AnalysisCriterionResult]:
+        self._set_status_message_callback(status_message_callback)
         results: dict[str, AnalysisCriterionResult] = {}
         announced_ai_stage = False
         for analyzer in self._analyzers:
@@ -180,6 +193,30 @@ class DeterministicAnalysisService(AnalysisService):
             results[analyzer.name] = result
         logger.debug("Analyzer pass completed", extra={"event": "analyzer_pass_done", "analysis_id": crawler_output.analysis_id, "analyzers": list(results.keys())})
         return results
+
+    def _set_status_message_callback(
+        self,
+        status_message_callback: Callable[[str], None] | None,
+    ) -> None:
+        if status_message_callback is None:
+            return
+
+        seen: set[int] = set()
+
+        def _set_on(target: object | None) -> None:
+            if target is None:
+                return
+            target_id = id(target)
+            if target_id in seen:
+                return
+            seen.add(target_id)
+            set_callback = getattr(target, "set_status_message_callback", None)
+            if callable(set_callback):
+                _ = set_callback(status_message_callback)
+
+        _set_on(self._evidence_agent)
+        for analyzer in self._analyzers:
+            _set_on(getattr(analyzer, "_agent", None))
 
     def _ensure_complete_criteria(
         self,

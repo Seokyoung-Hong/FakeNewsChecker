@@ -99,7 +99,16 @@ def get_ollama_settings() -> OllamaSettings:
     """Return local-model settings derived from environment variables."""
 
     settings = OllamaSettings.from_env()
-    logger.debug("Loaded Ollama settings via dependency", extra={"event": "ollama_settings_loaded", "host": settings.host, "model": settings.model})
+    logger.debug(
+        "Loaded Ollama settings via dependency",
+        extra={
+            "event": "ollama_settings_loaded",
+            "host": settings.host,
+            "fallback_hosts": settings.fallback_hosts,
+            "host_count": len(settings.hosts),
+            "model": settings.model,
+        },
+    )
     return settings
 
 

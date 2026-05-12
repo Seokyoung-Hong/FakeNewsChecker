@@ -105,6 +105,20 @@ class _ResettableAgent(_FakeAgent):
         return "LLM 핵심 근거: 근거 부족"
 
 
+class _StatusMessageAwareAgent(_FakeAgent):
+    status_message_callback: Callable[[str], None] | None
+    set_status_message_callback_calls: int
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.status_message_callback = None
+        self.set_status_message_callback_calls = 0
+
+    def set_status_message_callback(self, status_message_callback: Callable[[str], None] | None) -> None:
+        self.status_message_callback = status_message_callback
+        self.set_status_message_callback_calls += 1
+
+
 class DeterministicAnalysisServiceTests(unittest.TestCase):
     def test_run_attaches_saved_artifacts_to_analysis_result(self) -> None:
         artifact_store = _FakeArtifactStore()
@@ -219,6 +233,43 @@ class DeterministicAnalysisServiceTests(unittest.TestCase):
                 "report_build",
             ],
         )
+
+    def test_run_registers_status_message_callback_for_status_updates(self) -> None:
+        artifact_store = _FakeArtifactStore()
+        evidence_agent = _StatusMessageAwareAgent()
+        analyzer_agent = _StatusMessageAwareAgent()
+        service = DeterministicAnalysisService(
+            crawler_service=_FakeCrawlerService(),
+            analyzers=[
+                _FakeAnalyzer("source_reliability"),
+                _FakeAnalyzer("claim_consistency"),
+                _FakeAnalyzer("expression_risk"),
+                _FakeAnalyzer("multimodal_risk"),
+            ],
+            scoring_service=_FakeScoringService(),
+            report_service=_FakeReportService(),
+            evidence_agent=evidence_agent,
+            artifact_store=artifact_store,
+        )
+
+        for analyzer in service._analyzers:
+            analyzer._agent = analyzer_agent
+
+        status_messages: list[str] = []
+
+        def status_message_callback(message: str) -> None:
+            status_messages.append(message)
+
+        _ = service.run(
+            URLSubmission.model_validate({"url": "https://example.com/article"}),
+            status_message_callback=status_message_callback,
+        )
+
+        self.assertEqual(status_messages, [])
+        self.assertEqual(evidence_agent.set_status_message_callback_calls, 1)
+        self.assertEqual(evidence_agent.status_message_callback, status_message_callback)
+        self.assertEqual(analyzer_agent.set_status_message_callback_calls, 1)
+        self.assertEqual(analyzer_agent.status_message_callback, status_message_callback)
 
 
 if __name__ == "__main__":

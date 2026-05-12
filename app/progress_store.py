@@ -31,6 +31,7 @@ class AnalysisProgressJob:
     stage: str = STAGE_BODY_COLLECTION
     analysis_id: str | None = None
     error_message: str | None = None
+    status_message: str | None = None
     completed_stages: list[str] = field(default_factory=list)
 
 
@@ -67,6 +68,8 @@ class InMemoryAnalysisProgressStore:
                 job.completed_stages.append(job.stage)
             job.status = "completed"
             job.analysis_id = analysis_id
+            if job.status_message is None:
+                job.status_message = None
         logger.debug("Completed analysis progress job", extra={"event": "progress_job_completed", "job_id": job_id, "analysis_id": analysis_id})
 
     def fail(self, job_id: str, error_message: str) -> None:
@@ -77,6 +80,14 @@ class InMemoryAnalysisProgressStore:
             job.status = "failed"
             job.error_message = error_message
         logger.debug("Failed analysis progress job", extra={"event": "progress_job_failed", "job_id": job_id})
+
+    def update_status_message(self, job_id: str, message: str | None) -> None:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return
+            job.status_message = message
+        logger.debug("Updated analysis job status message", extra={"event": "progress_job_status_message", "job_id": job_id})
 
     def get(self, job_id: str) -> AnalysisProgressJob | None:
         with self._lock:
@@ -90,6 +101,7 @@ class InMemoryAnalysisProgressStore:
                 stage=job.stage,
                 analysis_id=job.analysis_id,
                 error_message=job.error_message,
+                status_message=job.status_message,
                 completed_stages=list(job.completed_stages),
             )
 
@@ -108,6 +120,7 @@ class InMemoryAnalysisProgressStore:
             "analysis_id": job.analysis_id,
             "redirect_url": redirect_url,
             "error_message": job.error_message,
+            "status_message": job.status_message,
         }
 
     def clear(self) -> None:
