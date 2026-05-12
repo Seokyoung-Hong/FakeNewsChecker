@@ -8,18 +8,29 @@
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
   </head>
   <body>
-    <main class="page-shell">
-      <section class="hero-card error-card" aria-labelledby="error-title">
-        <p class="eyebrow">Analysis Error</p>
+    <main class="page-shell error-shell">
+      <section class="error-layout" aria-labelledby="error-title">
+        <p class="eyebrow">Verification issue</p>
         <h1 id="error-title">{{ error_title | default('분석을 완료하지 못했습니다.', true) }}</h1>
         <p class="error-summary">
           {{ error_message | default('입력한 URL 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.', true) }}
         </p>
-        {% if submitted_url %}
-          <p class="helper-copy">마지막 제출 URL: {{ submitted_url }}</p>
-        {% endif %}
+
+        <div class="error-guidance">
+          <article class="guidance-card">
+            <strong>다시 시도해 보세요</strong>
+            <p>URL 형식이 올바른지 확인한 뒤 같은 흐름으로 다시 검증할 수 있습니다.</p>
+          </article>
+          {% if submitted_url %}
+            <article class="guidance-card">
+              <strong>마지막 제출 링크</strong>
+              <p class="result-url">{{ submitted_url }}</p>
+            </article>
+          {% endif %}
+        </div>
+
         <p class="retry-actions">
-          <a class="retry-link" href="{{ retry_path | default('/', true) }}">홈으로 돌아가 다시 시도하기</a>
+          <a class="retry-link" href="{{ retry_path | default('/', true) }}">이전 화면으로 돌아가 다시 시도하기</a>
         </p>
       </section>
     </main>

@@ -9,98 +9,135 @@
   </head>
   <body>
     <main class="page-shell result-shell">
-      <section class="hero-card result-card" aria-labelledby="result-title">
-        <div class="result-header">
-          <div>
-            <p class="eyebrow">Analysis Result</p>
-            <h1 id="result-title">검증 결과</h1>
-          </div>
-          <div class="score-badge" aria-label="신뢰도 점수 {{ result.score }}점">
-            <strong>{{ result.score }}</strong>
-            <span>/ 100</span>
-          </div>
-        </div>
+      <section class="result-layout" aria-labelledby="result-title">
+        <header class="verdict-hero">
+          <div class="verdict-main">
+            <p class="eyebrow">Verification report</p>
+            <h1 id="result-title">무엇을 확인했는지 먼저 보여드립니다.</h1>
+            <p class="result-summary">{{ result.summary }}</p>
 
-        <div class="result-meta" aria-label="분석 대상 정보">
-          <h2 class="result-article-title">{{ result.title }}</h2>
-          <p class="result-url">{{ result.url }}</p>
-        </div>
-
-        <section class="result-section" aria-labelledby="summary-title">
-          <div class="section-heading-row">
-            <h3 id="summary-title">요약 리포트</h3>
-            <a class="text-link" href="{{ retry_path | default('/', true) }}">다른 URL 검증하기</a>
+            <div class="verdict-signals" aria-label="핵심 결과 요약">
+              <article class="signal-card">
+                <span class="signal-label">판단</span>
+                <strong>{{ result.label }}</strong>
+              </article>
+              <article class="signal-card">
+                <span class="signal-label">점수</span>
+                <strong>{{ result.score }} / 100</strong>
+              </article>
+              <article class="signal-card signal-card-wide">
+                <span class="signal-label">대상 링크</span>
+                <strong class="result-url">{{ result.url }}</strong>
+              </article>
+            </div>
           </div>
-          <p class="result-summary">{{ result.summary }}</p>
+
+          <aside class="score-panel" aria-label="신뢰도 점수 {{ result.score }}점">
+            <p class="section-kicker">Overall score</p>
+            <div class="score-badge">
+              <strong>{{ result.score }}</strong>
+              <span>/ 100</span>
+            </div>
+            <p class="score-caption">{{ result.label }}</p>
+            <a class="primary-link" href="{{ retry_path | default('/', true) }}">다른 링크 검증하기</a>
+          </aside>
+        </header>
+
+        <section class="summary-strip" aria-label="검증 대상 정보">
+          <article class="summary-strip-card summary-strip-card-wide">
+            <span class="signal-label">제목</span>
+            <strong class="result-article-title">{{ result.title }}</strong>
+          </article>
+          <article class="summary-strip-card">
+            <span class="signal-label">분석 ID</span>
+            <strong>{{ result.analysis_id }}</strong>
+          </article>
         </section>
 
         <section class="result-section" aria-labelledby="details-title">
-          <h3 id="details-title">세부 분석 결과</h3>
+          <div class="section-heading-row">
+            <div>
+              <p class="section-kicker">Why this result</p>
+              <h2 id="details-title">세부 검증 항목</h2>
+            </div>
+          </div>
+
           <div class="detail-grid">
             {% for detail in result.details %}
               <article class="detail-card" aria-labelledby="detail-{{ loop.index }}">
                 <div class="detail-card-header">
-                  <h4 id="detail-{{ loop.index }}">{{ detail.label }}</h4>
+                  <h3 id="detail-{{ loop.index }}">{{ detail.label }}</h3>
                   <span class="detail-score">{{ detail.score }}점</span>
                 </div>
                 <p class="detail-summary">{{ detail.summary }}</p>
                 {% if detail.risk %}
-                  <p class="detail-risk">위험 신호: {{ detail.risk }}</p>
+                  <p class="detail-risk">주의 신호: {{ detail.risk }}</p>
                 {% endif %}
               </article>
             {% endfor %}
           </div>
         </section>
 
-        <section class="result-section" aria-labelledby="content-title">
-          <h3 id="content-title">원문 뷰어</h3>
-          <div class="content-viewer">
-            <pre>{{ result.original_content }}</pre>
+        <section class="result-section" aria-labelledby="source-title">
+          <div class="section-heading-row">
+            <div>
+              <p class="section-kicker">Source material</p>
+              <h2 id="source-title">원문과 저장 자료</h2>
+            </div>
           </div>
+
+          <details class="disclosure-block" open>
+            <summary>원문 보기</summary>
+            <div class="content-viewer">
+              <pre>{{ result.original_content }}</pre>
+            </div>
+          </details>
+
+          {% if result.artifacts %}
+            <details class="disclosure-block">
+              <summary>다운로드 저장 결과 보기</summary>
+              <div class="artifact-stack">
+                <p class="detail-summary">저장 폴더: {{ result.artifacts.storage_directory }}</p>
+
+                {% if result.artifacts.files %}
+                  <div class="detail-grid artifact-grid">
+                    {% for file in result.artifacts.files %}
+                      <article class="detail-card">
+                        <div class="detail-card-header">
+                          <h3>{{ file.label }}</h3>
+                          <span class="detail-score">{{ file.size_bytes }} bytes</span>
+                        </div>
+                        <p class="detail-summary">{{ file.relative_path }}</p>
+                        <a class="text-link" href="/analysis/{{ result.analysis_id }}/artifacts/{{ file.relative_path }}" target="_blank" rel="noopener">파일 열기</a>
+                      </article>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+
+                {% if result.artifacts.images %}
+                  <div class="detail-grid artifact-grid">
+                    {% for image in result.artifacts.images %}
+                      <article class="detail-card">
+                        <div class="detail-card-header">
+                          <h3>structured 이미지 {{ loop.index }}</h3>
+                          <span class="detail-score">{{ image.status }}</span>
+                        </div>
+                        <p class="detail-summary">{{ image.source_url }}</p>
+                        {% if image.local_file %}
+                          <p class="detail-summary">상대경로: {{ image.local_file.relative_path }}</p>
+                          <a class="text-link" href="/analysis/{{ result.analysis_id }}/artifacts/{{ image.local_file.relative_path }}" target="_blank" rel="noopener">저장 이미지 열기</a>
+                        {% endif %}
+                        {% if image.error %}
+                          <p class="detail-risk">실패 사유: {{ image.error }}</p>
+                        {% endif %}
+                      </article>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            </details>
+          {% endif %}
         </section>
-
-        {% if result.artifacts %}
-          <section class="result-section" aria-labelledby="artifacts-title">
-            <h3 id="artifacts-title">다운로드 저장 결과</h3>
-            <p class="detail-summary">저장 폴더: {{ result.artifacts.storage_directory }}</p>
-
-            {% if result.artifacts.files %}
-              <div class="detail-grid">
-                {% for file in result.artifacts.files %}
-                  <article class="detail-card">
-                    <div class="detail-card-header">
-                      <h4>{{ file.label }}</h4>
-                      <span class="detail-score">{{ file.size_bytes }} bytes</span>
-                    </div>
-                    <p class="detail-summary">{{ file.relative_path }}</p>
-                    <a class="text-link" href="/analysis/{{ result.analysis_id }}/artifacts/{{ file.relative_path }}" target="_blank" rel="noopener">파일 열기</a>
-                  </article>
-                {% endfor %}
-              </div>
-            {% endif %}
-
-            {% if result.artifacts.images %}
-              <div class="detail-grid">
-                {% for image in result.artifacts.images %}
-                  <article class="detail-card">
-                    <div class="detail-card-header">
-                      <h4>structured 이미지 {{ loop.index }}</h4>
-                      <span class="detail-score">{{ image.status }}</span>
-                    </div>
-                    <p class="detail-summary">{{ image.source_url }}</p>
-                    {% if image.local_file %}
-                      <p class="detail-summary">상대경로: {{ image.local_file.relative_path }}</p>
-                      <a class="text-link" href="/analysis/{{ result.analysis_id }}/artifacts/{{ image.local_file.relative_path }}" target="_blank" rel="noopener">저장 이미지 열기</a>
-                    {% endif %}
-                    {% if image.error %}
-                      <p class="detail-risk">실패 사유: {{ image.error }}</p>
-                    {% endif %}
-                  </article>
-                {% endfor %}
-              </div>
-            {% endif %}
-          </section>
-        {% endif %}
       </section>
     </main>
   </body>

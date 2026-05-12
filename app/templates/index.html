@@ -3,39 +3,57 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>가짜뉴스 URL 검증 서비스</title>
+    <title>링크 검증</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
   </head>
   <body>
-    <main class="page-shell">
-      <section class="hero-card" aria-labelledby="page-title">
-        <p class="eyebrow">Fake News Verification</p>
-        <h1 id="page-title">검증하고 싶은 뉴스·게시글 URL을 입력하세요.</h1>
-        <p class="intro-copy">
-          뉴스 기사, SNS 게시글, 블로그 링크를 붙여 넣으면 이후 단계에서 신뢰도
-          리포트를 확인할 수 있습니다.
-        </p>
+    <main class="page-shell landing-shell">
+      <section class="hero-panel" aria-labelledby="page-title">
+        <div class="hero-copy-block">
+          <p class="eyebrow">{{ mode_badge | default('Link Verification', true) }}</p>
+          <h1 id="page-title">{{ page_title | default('검증하고 싶은 뉴스·게시글 URL을 입력하세요.', true) }}</h1>
+          <p class="intro-copy">
+            {{ intro_copy | default('뉴스 기사, SNS 게시글, 블로그 링크를 붙여 넣으면 이후 단계에서 신뢰도 리포트를 확인할 수 있습니다.', true) }}
+          </p>
+        </div>
 
-        <form class="url-form" id="analysis-form" action="/analysis" method="post" novalidate>
-          <label class="sr-only" for="target-url">검증할 URL</label>
-          <input
-            id="target-url"
-            name="url"
-            type="url"
-            inputmode="url"
-            placeholder="https://example.com/news-story"
-            autocomplete="url"
-            value="{{ submitted_url | default('', true) }}"
-            required
-          />
-          <button id="submit-button" type="submit">검증하기</button>
-          <p class="form-error{% if form_error %} is-visible{% endif %}" id="form-error" role="alert" aria-live="polite">{{ form_error | default('', true) }}</p>
-        </form>
+        <div class="entry-grid entry-grid-single">
+          <section class="submission-panel" aria-labelledby="submission-title">
+            <div class="panel-heading-row">
+              <div>
+                <h2 id="submission-title">링크를 입력하고 확인하세요</h2>
+              </div>
+            </div>
 
-        <p class="helper-copy">
-          예시: 언론 기사 링크, 공개 SNS 게시물 링크, 블로그 포스트 링크
-        </p>
+            <form
+              class="url-form"
+              id="analysis-form"
+              action="{{ analysis_action | default('/analysis', true) }}"
+              data-start-action="{{ (analysis_action | default('/analysis', true)) ~ '/start' }}"
+              data-submit-label="{{ submit_label | default('검증하기', true) }}"
+              method="post"
+              novalidate
+            >
+              <label class="sr-only" for="target-url">검증할 URL</label>
+              <input
+                id="target-url"
+                name="url"
+                type="url"
+                inputmode="url"
+                placeholder="https://example.com/news-story"
+                autocomplete="url"
+                value="{{ submitted_url | default('', true) }}"
+                required
+              />
+              <button id="submit-button" type="submit">{{ submit_label | default('검증하기', true) }}</button>
+              <div class="form-feedback" id="form-feedback">
+                <p class="form-error-summary{% if form_error %} is-visible{% endif %}" id="form-error-summary" role="alert" aria-live="assertive">{{ form_error | default('', true) }}</p>
+                <p class="form-error{% if form_error %} is-visible{% endif %}" id="form-error" role="alert" aria-live="polite">{{ form_error | default('', true) }}</p>
+              </div>
+            </form>
+          </section>
+        </div>
       </section>
     </main>
 
