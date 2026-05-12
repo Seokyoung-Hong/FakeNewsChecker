@@ -1,10 +1,11 @@
-"""Runtime configuration helpers for crawler selection."""
+"""Runtime configuration helpers for crawler and model selection."""
 
 # pyright: reportMissingImports=false
 
 from __future__ import annotations
 
 import os
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,7 +17,9 @@ except ModuleNotFoundError:  # pragma: no cover - optional local convenience onl
         return False
 
 
-load_dotenv()
+_ = load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 HIVE_API_KEY = os.getenv("HIVE_API_KEY", "")
@@ -67,6 +70,18 @@ class CrawlerSettings:
                 "HYPERBROWSER_API_KEY is required when CRAWLER_PROVIDER=hyperbrowser."
             )
 
+        logger.debug(
+            "Resolved crawler settings",
+            extra={
+                "event": "crawler_settings_resolved",
+                "provider": provider,
+                "hyperbrowser_has_api_key": bool(hyperbrowser_api_key),
+                "wait_until": hyperbrowser_wait_until,
+                "wait_for_ms": hyperbrowser_wait_for_ms,
+                "timeout_ms": hyperbrowser_timeout_ms,
+                "artifact_root_dir": str(Path(artifact_root_dir)),
+            },
+        )
         return cls(
             provider=provider,
             hyperbrowser_api_key=hyperbrowser_api_key,
@@ -77,9 +92,49 @@ class CrawlerSettings:
         )
 
 
+@dataclass(frozen=True)
+class OllamaSettings:
+    """Environment-backed local Ollama configuration."""
+
+    host: str = "http://localhost:11434"
+    model: str = "qwen3.5"
+    timeout_ms: int = 240000
+
+    @classmethod
+    def from_env(
+        cls,
+        environ: Mapping[str, str] | None = None,
+    ) -> "OllamaSettings":
+        env = os.environ if environ is None else environ
+
+        host = env.get("OLLAMA_HOST", "http://localhost:11434").strip()
+        if not host:
+            raise ValueError("OLLAMA_HOST must not be empty.")
+
+        model = env.get("OLLAMA_MODEL", "qwen3.5").strip()
+        if not model:
+            raise ValueError("OLLAMA_MODEL must not be empty.")
+
+        timeout_ms = int(env.get("OLLAMA_TIMEOUT_MS", "240000"))
+        if timeout_ms <= 0:
+            raise ValueError("OLLAMA_TIMEOUT_MS must be a positive integer.")
+
+        logger.debug(
+            "Resolved Ollama settings",
+            extra={
+                "event": "ollama_settings_resolved",
+                "host": host,
+                "model": model,
+                "timeout_ms": timeout_ms,
+            },
+        )
+        return cls(host=host, model=model, timeout_ms=timeout_ms)
+
+
 __all__ = [
     "ANTHROPIC_API_KEY",
     "HIVE_API_KEY",
     "GEMINI_API_KEY",
     "CrawlerSettings",
+    "OllamaSettings",
 ]
