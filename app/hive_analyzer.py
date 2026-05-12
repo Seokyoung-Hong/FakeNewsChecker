@@ -1,6 +1,11 @@
 import httpx
+import logging
 
+from app.cache_store import load_hive_cache, save_hive_cache
 from app.config import HIVE_API_KEY
+
+
+logger = logging.getLogger(__name__)
 
 HIVE_API_URL = "https://api.thehive.ai/api/v3/hive/ai-generated-and-deepfake-content-detection"
 
@@ -85,11 +90,34 @@ def _class_name(cls: dict[str, object]) -> str | None:
     return None
 
 
+def _normalize_image_urls(image_urls: list[str]) -> tuple[str, ...]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in image_urls:
+        candidate = value.strip()
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        normalized.append(candidate)
+        if len(normalized) == 3:
+            break
+    return tuple(normalized)
+
+
 def analyze_images(image_urls: list[str]) -> dict[str, object]:
-    if not image_urls:
+    normalized_urls = _normalize_image_urls(image_urls)
+    if not normalized_urls:
+        logger.debug("Hive analysis skipped: no images", extra={"event": "hive_skip_no_images"})
         return {"score": 100, "summary": "분석할 이미지가 없습니다.", "risk": "low"}
 
+    cached = load_hive_cache(normalized_urls)
+    if cached is not None:
+        logger.debug("Hive cache hit", extra={"event": "hive_cache_hit", "image_count": len(normalized_urls)})
+        return cached
+    logger.debug("Hive cache miss", extra={"event": "hive_cache_miss", "image_count": len(normalized_urls)})
+
     if not HIVE_API_KEY:
+        logger.debug("Hive analysis skipped: missing API key", extra={"event": "hive_skip_no_api_key"})
         return {"score": 50, "summary": "Hive API 키가 없어 이미지 분석을 건너뜁니다.", "risk": "unknown"}
 
     headers = {
@@ -100,8 +128,9 @@ def analyze_images(image_urls: list[str]) -> dict[str, object]:
     ai_scores = []
     deepfake_scores = []
     last_error: str | None = None
+    had_failure = False
 
-    for img_url in image_urls[:3]:
+    for img_url in normalized_urls:
         try:
             resp = httpx.post(
                 HIVE_API_URL,
@@ -119,6 +148,8 @@ def analyze_images(image_urls: list[str]) -> dict[str, object]:
                 except Exception:
                     pass
                 last_error = f"{resp.status_code}: {body}"
+                had_failure = True
+                logger.debug("Hive request failed for image", extra={"event": "hive_request_failed", "status_code": resp.status_code, "image_url": img_url})
                 continue
 
             data = resp.json()
@@ -140,9 +171,12 @@ def analyze_images(image_urls: list[str]) -> dict[str, object]:
                     deepfake_scores.append(float(probability))
         except Exception as exc:  # noqa: BLE001
             last_error = str(exc)
+            had_failure = True
+            logger.debug("Hive request raised exception", extra={"event": "hive_request_exception", "image_url": img_url, "exception_class": type(exc).__name__})
 
     if not ai_scores and not deepfake_scores:
         if last_error:
+            logger.debug("Hive analysis failed for all images", extra={"event": "hive_all_failed", "image_count": len(normalized_urls)})
             return {
                 "score": 50,
                 "summary": f"이미지 분석에 실패했습니다. ({last_error})",
@@ -167,4 +201,14 @@ def analyze_images(image_urls: list[str]) -> dict[str, object]:
         summary = "이미지 조작 가능성은 낮습니다."
         risk = "low"
 
-    return {"score": round((1 - risk_score) * 100), "summary": summary, "risk": risk}
+    result: dict[str, object] = {
+        "score": round((1 - risk_score) * 100),
+        "summary": summary,
+        "risk": risk,
+    }
+    if not had_failure:
+        save_hive_cache(normalized_urls, result)
+        logger.debug("Hive analysis result cached", extra={"event": "hive_cache_save", "image_count": len(normalized_urls), "risk": risk, "score": result["score"]})
+    else:
+        logger.debug("Hive partial success not cached", extra={"event": "hive_partial_not_cached", "image_count": len(normalized_urls), "risk": risk, "score": result["score"]})
+    return result
