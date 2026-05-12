@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import types
+import os
+import tempfile
 import unittest
+from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 from app.services.hyperbrowser_client import HyperbrowserClient, HyperbrowserClientError
@@ -128,6 +132,45 @@ class HyperbrowserClientTests(unittest.TestCase):
         self.assertEqual(navigation.kwargs["wait_until"], "networkidle")
         self.assertEqual(navigation.kwargs["wait_for"], 2000)
         self.assertEqual(navigation.kwargs["timeout_ms"], 45000)
+
+    def test_download_loads_fetch_prompt_from_prompt_dir(self) -> None:
+        response = _FakeResponse(
+            status="completed",
+            data=types.SimpleNamespace(
+                metadata=types.SimpleNamespace(title="기사 제목", sourceURL="https://example.com/final"),
+                markdown="기사 본문입니다.",
+                html="<html></html>",
+                links=[],
+                json_=types.SimpleNamespace(title="기사 제목", article_text="기사 본문입니다.", image_urls=[]),
+            ),
+        )
+        hyperbrowser_module, models_module, holder = self._build_modules(response)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prompt_dir = Path(temp_dir)
+            (prompt_dir / "hyperbrowser_fetch_article.txt").write_text("CUSTOM FETCH PROMPT", encoding="utf-8")
+
+            with patch.dict(os.environ, {"PROMPT_DIR": temp_dir}, clear=False):
+                with patch(
+                    "app.services.hyperbrowser_client._import_hyperbrowser",
+                    return_value=(hyperbrowser_module, models_module),
+                ):
+                    _ = HyperbrowserClient(api_key="secret").download("https://example.com/news-story")
+
+        client = holder["client"]
+        assert isinstance(client, _FakeHyperbrowserSDKClient)
+        params = client.web.last_params
+        assert isinstance(params, _FakeFetchParams)
+        params_kwargs = cast(dict[str, object], params.kwargs)
+        outputs = params_kwargs["outputs"]
+        assert isinstance(outputs, _FakeFetchOutputOptions)
+        output_kwargs = cast(dict[str, object], outputs.kwargs)
+        formats = output_kwargs["formats"]
+        self.assertIsInstance(formats, list)
+        assert isinstance(formats, list)
+        fetch_output = formats[3]
+        assert isinstance(fetch_output, _FakeFetchOutputJson)
+        self.assertEqual(fetch_output.kwargs["prompt"], "CUSTOM FETCH PROMPT")
 
     def test_download_normalizes_relative_image_urls_against_final_url(self) -> None:
         response = _FakeResponse(

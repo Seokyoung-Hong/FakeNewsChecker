@@ -9,6 +9,8 @@ import logging
 from typing import Any
 from urllib.parse import urljoin
 
+from app.prompt_loader import load_prompt
+
 
 logger = logging.getLogger(__name__)
 
@@ -120,12 +122,7 @@ class HyperbrowserClient:
     def _build_fetch_params(self, models_module: Any, url: str) -> Any:
         fetch_output_json = models_module.FetchOutputJson(
             type="json",
-            prompt=(
-                "Extract the page title, the main article or post text, and every meaningful "
-                "image URL that belongs to the article body, post body, or card-news/carousel slides. "
-                "For Instagram or similar SNS posts, include every actual post/carousel image in order. "
-                "Exclude profile pictures, author avatars, commenter avatars, icons, logos, navigation images, and ad images."
-            ),
+            prompt=load_prompt("hyperbrowser_fetch_article"),
             schema={
                 "type": "object",
                 "properties": {
