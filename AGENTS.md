@@ -24,6 +24,8 @@
 - 루트 `main.py`는 단순 플레이스홀더 출력용 파일입니다.
 - 결과 저장소는 `InMemoryAnalysisResultRepository`이며 영속 저장이 아닙니다.
 - `app/database.py`, `app/models.py`, `app/agents/external_agent_client.py`는 미래 구현을 위한 플레이스홀더/시드 단계입니다.
+- Hyperbrowser 다운로드 결과와 Hive 이미지 분석 결과는 파일 기반 **10일 TTL 캐시**를 사용합니다.
+- `/local-model` 경로는 Ollama 기반 로컬 모델 분석 경로입니다.
 
 ## 현재 동작하는 요청 흐름
 
@@ -75,6 +77,7 @@ GET /
 | 현재 실행 방식 이해 | `docker-compose.yml`, `Dockerfile`, `app/main.py` | 실제 런타임 기준 |
 | 홈/결과 화면 흐름 확인 | `app/routers/page.py`, `app/routers/analysis.py`, `app/templates/` | 서버 렌더링 기반 |
 | 현재 분석 파이프라인 확인 | `app/services/`, `app/analyzers/`, `app/agents/local_agent.py` | 전부 오프라인 결정론적 스텁 |
+| 캐시 동작 확인 | `app/cache_store.py`, `app/services/crawler_service.py`, `app/hive_analyzer.py` | Hyperbrowser/Hive 10일 TTL |
 | 데이터 계약 확인 | `app/schemas.py` | 현재 파이프라인의 핵심 DTO |
 | 저장 방식 확인 | `app/repositories.py` | 메모리 저장소 |
 | 장기 제품 목표 확인 | `FunctionalSpec.md` | 현재 구현보다 넓은 목표 문서 |
@@ -103,6 +106,7 @@ GET /
 - 현재 UI는 Jinja2 서버 렌더링 기반이며 SPA 전환은 전제되어 있지 않습니다.
 - 실제 기능이 추가되더라도 라우터는 얇게 유지하고 서비스/에이전트/분석기 계층에 책임을 배치하는 방향이 현재 구조와 맞습니다.
 - 현재 프로토타입의 중요한 특성은 **오프라인**, **결정론적**, **동기식**, **메모리 저장**입니다.
+- URL canonicalization은 캐시 키와 `analysis_id`에 영향을 줍니다. 현재 규칙은 **scheme/host 소문자화, fragment 제거, 기본 포트 제거, 빈 path를 `/`로 통일**까지만 수행하며, **path 대소문자·query 순서·query 값·비루트 trailing slash는 보존**합니다.
 
 ## 주의할 안티패턴
 
@@ -124,3 +128,4 @@ docker compose up --build
 - `GET /analysis/{analysis_id}`는 저장소가 초기화되었거나 ID가 없으면 404 오류 화면을 렌더링합니다.
 - 홈 화면의 로딩 오버레이는 `app/static/js/main.js`에서 제어하는 브라우저 측 연출이며, 서버의 별도 진행 상태 추적은 없습니다.
 - 실제 데이터베이스 도입과 외부 분석기 연동은 아직 구현되지 않았고, 관련 자리만 준비되어 있습니다.
+- Hyperbrowser 캐시는 정규화 URL 기준으로, Hive 캐시는 상위 3개 정규화 이미지 URL 조합 기준으로 10일 동안 유지됩니다.
