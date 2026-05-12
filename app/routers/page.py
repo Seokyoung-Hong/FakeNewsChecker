@@ -82,6 +82,7 @@ def index(
 
 
 @router.get("/local-model", response_class=HTMLResponse)
+@router.get("/local-search", response_class=HTMLResponse)
 def local_model_index(
     request: Request,
     templates: Annotated[Jinja2Templates, Depends(get_templates)],
@@ -89,7 +90,7 @@ def local_model_index(
     url: str = "",
     error: str = "",
 ) -> HTMLResponse:
-    """Render the local-model submission page."""
+    """Render the local crawling + local model submission page."""
 
     logger.debug(
         "Serving local-model index page",
@@ -101,9 +102,12 @@ def local_model_index(
         templates,
         submitted_url=url,
         error=error,
-        analysis_action="/local-model",
-        submit_label="로컬 모델로 검증하기",
-        page_title=f"로컬 모델({ollama_settings.model})로 분석할 URL을 입력하세요.",
-        intro_copy=f"이 경로는 서버에서 실행 중인 Ollama의 {ollama_settings.model} 모델을 사용해 텍스트 분석을 수행합니다.",
-        mode_badge="Local Model",
+        analysis_action=request.url.path,
+        submit_label="로컬 검색으로 검증하기",
+        page_title=f"로컬 검색 + 로컬 모델({ollama_settings.model})로 분석할 URL을 입력하세요.",
+        intro_copy=(
+            f"이 경로는 Playwright 기반 로컬 브라우저 크롤링으로 본문을 수집하고, "
+            f"서버에서 실행 중인 Ollama의 {ollama_settings.model} 모델로 텍스트 분석을 수행합니다."
+        ),
+        mode_badge="Local Search",
     )

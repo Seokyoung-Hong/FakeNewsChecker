@@ -136,6 +136,20 @@ class AnalysisSubmissionRouteTests(unittest.TestCase):
         self.assertEqual(response.headers["location"], "/analysis/local-1")
         self.assertIsNotNone(repository.get("local-1"))
 
+    def test_post_local_search_redirects_to_result_page(self) -> None:
+        repository = InMemoryAnalysisResultRepository()
+        app.dependency_overrides[get_active_local_analysis_service] = lambda: _FakeAnalysisService("local-1")
+        app.dependency_overrides[get_active_analysis_repository] = lambda: repository
+        try:
+            client = TestClient(app)
+            response = client.post("/local-search", data={"url": "https://example.com/article"}, follow_redirects=False)
+        finally:
+            app.dependency_overrides.clear()
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], "/analysis/local-1")
+        self.assertIsNotNone(repository.get("local-1"))
+
     def test_local_model_page_uses_local_form_action(self) -> None:
         client = TestClient(app)
         response = client.get("/local-model")
@@ -143,7 +157,15 @@ class AnalysisSubmissionRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('action="/local-model"', response.text)
         self.assertIn("링크를 입력하고 확인하세요", response.text)
-        self.assertIn("local model", response.text.lower())
+        self.assertIn("local search", response.text.lower())
+
+    def test_local_search_page_uses_local_form_action(self) -> None:
+        client = TestClient(app)
+        response = client.get("/local-search")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('action="/local-search"', response.text)
+        self.assertIn("로컬 검색", response.text)
 
     def test_local_result_page_uses_local_retry_path(self) -> None:
         repository = InMemoryAnalysisResultRepository()
@@ -175,7 +197,7 @@ class AnalysisSubmissionRouteTests(unittest.TestCase):
             app.dependency_overrides.clear()
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('href="/local-model"', response.text)
+        self.assertIn('href="/local-search"', response.text)
         self.assertIn("무엇을 확인했는지 먼저 보여드립니다.", response.text)
         self.assertIn("세부 검증 항목", response.text)
         self.assertIn("원문과 저장 자료", response.text)

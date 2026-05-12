@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 def _retry_path_for_analysis_id(analysis_id: str) -> str:
     if analysis_id.startswith("local-"):
-        return "/local-model"
+        return "/local-search"
     return "/"
 
 
@@ -167,6 +167,7 @@ def create_analysis(
 
 
 @router.post("/local-model", response_class=HTMLResponse)
+@router.post("/local-search", response_class=HTMLResponse)
 def create_local_model_analysis(
     request: Request,
     url: Annotated[str, Form()],
@@ -174,9 +175,9 @@ def create_local_model_analysis(
     analysis_service: Annotated[AnalysisService, Depends(get_active_local_analysis_service)],
     repository: Annotated[AnalysisResultRepository, Depends(get_active_analysis_repository)],
 ) -> Response:
-    """Handle browser form submission for the local-model analysis flow."""
+    """Handle browser form submission for the local crawling analysis flow."""
 
-    logger.debug("Received local-model analysis request", extra={"event": "analysis_route", "path": "/local-model"})
+    logger.debug("Received local analysis request", extra={"event": "analysis_route", "path": request.url.path})
 
     return _handle_analysis_submission(
         request=request,
@@ -184,7 +185,7 @@ def create_local_model_analysis(
         templates=templates,
         analysis_service=analysis_service,
         repository=repository,
-        retry_path="/local-model",
+        retry_path=request.url.path,
     )
 
 
@@ -204,17 +205,19 @@ def start_analysis(
 
 
 @router.post("/local-model/start", response_class=JSONResponse)
+@router.post("/local-search/start", response_class=JSONResponse)
 def start_local_model_analysis(
+    request: Request,
     url: Annotated[str, Form()],
     analysis_service: Annotated[AnalysisService, Depends(get_active_local_analysis_service)],
     repository: Annotated[AnalysisResultRepository, Depends(get_active_analysis_repository)],
 ) -> JSONResponse:
-    logger.debug("Received async local-model analysis start request", extra={"event": "analysis_start_route", "path": "/local-model/start"})
+    logger.debug("Received async local analysis start request", extra={"event": "analysis_start_route", "path": request.url.path})
     return _start_analysis_submission(
         submitted_url=url.strip(),
         analysis_service=analysis_service,
         repository=repository,
-        flow="local-model",
+        flow=request.url.path.lstrip("/").removesuffix("/start"),
     )
 
 
