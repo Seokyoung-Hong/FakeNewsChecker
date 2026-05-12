@@ -9,6 +9,7 @@ import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from itertools import zip_longest
 
 try:
     from dotenv import load_dotenv
@@ -97,8 +98,30 @@ class OllamaSettings:
     """Environment-backed local Ollama configuration."""
 
     host: str = "http://localhost:11434"
+    fallback_hosts: tuple[str, ...] = ()
+    fallback_models: tuple[str, ...] = ()
     model: str = "qwen3.5"
     timeout_ms: int = 240000
+
+    @property
+    def hosts(self) -> tuple[str, ...]:
+        ordered_hosts: list[str] = []
+        seen: set[str] = set()
+        for candidate in (self.host, *self.fallback_hosts):
+            normalized = candidate.strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            ordered_hosts.append(normalized)
+        return tuple(ordered_hosts)
+
+    @property
+    def host_model_pairs(self) -> tuple[tuple[str, str], ...]:
+        models = (self.model, *self.fallback_models)
+        host_model_pairs: list[tuple[str, str]] = []
+        for host, model in zip_longest(self.hosts, models, fillvalue=self.model):
+            host_model_pairs.append((host, model))
+        return tuple(host_model_pairs)
 
     @classmethod
     def from_env(
@@ -111,6 +134,24 @@ class OllamaSettings:
         if not host:
             raise ValueError("OLLAMA_HOST must not be empty.")
 
+        fallback_hosts_raw = env.get("OLLAMA_FALLBACK_HOSTS", "")
+        fallback_hosts: list[str] = []
+        if fallback_hosts_raw.strip():
+            for raw_candidate in fallback_hosts_raw.split(","):
+                candidate = raw_candidate.strip()
+                if not candidate:
+                    raise ValueError("OLLAMA_FALLBACK_HOSTS must not contain empty hosts.")
+                fallback_hosts.append(candidate)
+
+        fallback_models_raw = env.get("OLLAMA_FALLBACK_MODELS", "")
+        fallback_models: list[str] = []
+        if fallback_models_raw.strip():
+            for raw_candidate in fallback_models_raw.split(","):
+                candidate = raw_candidate.strip()
+                if not candidate:
+                    raise ValueError("OLLAMA_FALLBACK_MODELS must not contain empty model names.")
+                fallback_models.append(candidate)
+
         model = env.get("OLLAMA_MODEL", "qwen3.5").strip()
         if not model:
             raise ValueError("OLLAMA_MODEL must not be empty.")
@@ -122,13 +163,24 @@ class OllamaSettings:
         logger.debug(
             "Resolved Ollama settings",
             extra={
-                "event": "ollama_settings_resolved",
-                "host": host,
-                "model": model,
-                "timeout_ms": timeout_ms,
-            },
+            "event": "ollama_settings_resolved",
+            "host": host,
+            "fallback_hosts": tuple(fallback_hosts),
+            "fallback_models": tuple(fallback_models),
+            "ordered_hosts": tuple(dict.fromkeys([host, *fallback_hosts])),
+            "fallback_count": len(fallback_hosts),
+            "fallback_model_count": len(fallback_models),
+            "model": model,
+            "timeout_ms": timeout_ms,
+        },
         )
-        return cls(host=host, model=model, timeout_ms=timeout_ms)
+        return cls(
+            host=host,
+            fallback_hosts=tuple(fallback_hosts),
+            fallback_models=tuple(fallback_models),
+            model=model,
+            timeout_ms=timeout_ms,
+        )
 
 
 __all__ = [
