@@ -4,7 +4,7 @@ import unittest
 from typing import cast
 from unittest.mock import patch
 
-from app.claude_analyzer import analyze_text
+from app.gemini_analyzer import analyze_text
 
 
 class _FakeResponse:
@@ -39,10 +39,10 @@ class _FakeGenaiModule:
         return client
 
 
-class ClaudeAnalyzerTests(unittest.TestCase):
+class GeminiAnalyzerTests(unittest.TestCase):
     def test_returns_fallback_shape_without_api_key(self) -> None:
-        with patch("app.claude_analyzer.GEMINI_API_KEY", ""), patch(
-            "app.claude_analyzer._import_genai", return_value=None
+        with patch("app.gemini_analyzer.GEMINI_API_KEY", ""), patch(
+            "app.gemini_analyzer._import_genai", return_value=None
         ):
             result = analyze_text("제목", "https://example.com", "본문")
 
@@ -61,9 +61,9 @@ class ClaudeAnalyzerTests(unittest.TestCase):
         }"""
         fake_module = _FakeGenaiModule(response_text)
 
-        with patch("app.claude_analyzer.GEMINI_API_KEY", "secret"), patch(
-            "app.claude_analyzer._import_genai", return_value=fake_module
-        ), self.assertLogs("app.claude_analyzer", level="DEBUG") as logs:
+        with patch("app.gemini_analyzer.GEMINI_API_KEY", "secret"), patch(
+            "app.gemini_analyzer._import_genai", return_value=fake_module
+        ), self.assertLogs("app.gemini_analyzer", level="DEBUG") as logs:
             result = analyze_text("제목", "https://example.com", "본문")
 
         claim = cast(dict[str, object], result["claim_consistency"])
@@ -73,7 +73,7 @@ class ClaudeAnalyzerTests(unittest.TestCase):
         last_call = fake_module.last_client.models.last_call
         assert last_call is not None
         prompt = last_call["contents"]
-        self.assertIn("가짜뉴스 판별", str(prompt))
+        self.assertIn("허위정보 위험도 분석", str(prompt))
 
     def test_bridges_legacy_contract(self) -> None:
         response_text = """```json
@@ -89,8 +89,8 @@ class ClaudeAnalyzerTests(unittest.TestCase):
         ```"""
         fake_module = _FakeGenaiModule(response_text)
 
-        with patch("app.claude_analyzer.GEMINI_API_KEY", "secret"), patch(
-            "app.claude_analyzer._import_genai", return_value=fake_module
+        with patch("app.gemini_analyzer.GEMINI_API_KEY", "secret"), patch(
+            "app.gemini_analyzer._import_genai", return_value=fake_module
         ):
             result = analyze_text("제목", "https://example.com", "본문")
 
@@ -110,8 +110,8 @@ class ClaudeAnalyzerTests(unittest.TestCase):
         }"""
         fake_module = _FakeGenaiModule(response_text)
 
-        with patch("app.claude_analyzer.GEMINI_API_KEY", "secret"), patch(
-            "app.claude_analyzer._import_genai", return_value=fake_module
+        with patch("app.gemini_analyzer.GEMINI_API_KEY", "secret"), patch(
+            "app.gemini_analyzer._import_genai", return_value=fake_module
         ):
             result = analyze_text("제목", "https://example.com", "본문")
 

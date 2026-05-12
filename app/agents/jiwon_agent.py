@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 
 from app.agents.base import AnalysisAgent
 from app.agents.local_agent import LocalAgent
-from app.claude_analyzer import analyze_text
+from app.gemini_analyzer import analyze_text
 from app.hive_analyzer import analyze_images
 from app.schemas import AnalysisCriterionResult, CrawlerOutput
 
