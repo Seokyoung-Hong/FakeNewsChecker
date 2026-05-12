@@ -14,6 +14,36 @@ class CrawlerSettingsTests(unittest.TestCase):
         self.assertEqual(settings.hyperbrowser_wait_until, "load")
         self.assertEqual(settings.hyperbrowser_wait_for_ms, 1500)
         self.assertEqual(settings.hyperbrowser_timeout_ms, 30000)
+        self.assertEqual(settings.local_crawler_backend, "playwright")
+        self.assertTrue(settings.local_crawler_headless)
+        self.assertEqual(settings.local_crawler_wait_until, "networkidle")
+        self.assertEqual(settings.local_crawler_wait_for_ms, 1000)
+        self.assertEqual(settings.local_crawler_timeout_ms, 45000)
+        self.assertTrue(settings.local_crawler_block_media)
+        self.assertFalse(settings.local_crawler_mcp_enabled)
+
+    def test_from_env_parses_local_crawler_settings(self) -> None:
+        settings = CrawlerSettings.from_env(
+            {
+                "LOCAL_CRAWLER_BACKEND": "playwright",
+                "LOCAL_CRAWLER_HEADLESS": "false",
+                "LOCAL_CRAWLER_WAIT_UNTIL": "load",
+                "LOCAL_CRAWLER_WAIT_FOR_MS": "2500",
+                "LOCAL_CRAWLER_TIMEOUT_MS": "90000",
+                "LOCAL_CRAWLER_BLOCK_MEDIA": "no",
+                "LOCAL_CRAWLER_MCP_ENABLED": "yes",
+                "LOCAL_CRAWLER_USER_AGENT": "CustomAgent/2.0",
+            }
+        )
+
+        self.assertEqual(settings.local_crawler_backend, "playwright")
+        self.assertFalse(settings.local_crawler_headless)
+        self.assertEqual(settings.local_crawler_wait_until, "load")
+        self.assertEqual(settings.local_crawler_wait_for_ms, 2500)
+        self.assertEqual(settings.local_crawler_timeout_ms, 90000)
+        self.assertFalse(settings.local_crawler_block_media)
+        self.assertTrue(settings.local_crawler_mcp_enabled)
+        self.assertEqual(settings.local_crawler_user_agent, "CustomAgent/2.0")
 
 
 class OllamaSettingsTests(unittest.TestCase):

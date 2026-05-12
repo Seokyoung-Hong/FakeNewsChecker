@@ -29,9 +29,11 @@ from app.services.crawler_service import (
     CrawlerService,
     DeterministicCrawlerService,
     HyperbrowserCrawlerService,
+    LocalBrowserCrawlerService,
     PrefixedCrawlerService,
 )
 from app.services.hyperbrowser_client import HyperbrowserClient
+from app.services.local_browser_client import LocalBrowserClient
 from app.services.report_service import ReportService, DeterministicReportService
 from app.services.scoring_service import ScoringService, DeterministicScoringService
 
@@ -91,6 +93,33 @@ def get_crawler_service() -> CrawlerService:
 
     service = DeterministicCrawlerService()
     logger.debug("Selected crawler service", extra={"event": "crawler_service_selected", "provider": settings.provider, "service_class": type(service).__name__})
+    return service
+
+
+@lru_cache(maxsize=1)
+def get_local_crawler_service() -> CrawlerService:
+    """Return the local crawler implementation used by local-search flows."""
+
+    settings = get_crawler_settings()
+    client = LocalBrowserClient(
+        backend=settings.local_crawler_backend,
+        headless=settings.local_crawler_headless,
+        wait_until=settings.local_crawler_wait_until,
+        wait_for_ms=settings.local_crawler_wait_for_ms,
+        timeout_ms=settings.local_crawler_timeout_ms,
+        block_media=settings.local_crawler_block_media,
+        user_agent=settings.local_crawler_user_agent,
+        navigation_settings=get_ollama_settings(),
+    )
+    service = LocalBrowserCrawlerService(client)
+    logger.debug(
+        "Selected local crawler service",
+        extra={
+            "event": "local_crawler_service_selected",
+            "backend": settings.local_crawler_backend,
+            "service_class": type(service).__name__,
+        },
+    )
     return service
 
 
@@ -185,11 +214,10 @@ def get_analysis_service() -> AnalysisService:
     )
 
 
-@lru_cache(maxsize=1)
 def get_local_analysis_service() -> AnalysisService:
-    """Return the local-model analysis service for the `/local-model` flow."""
+    """Return the local-model analysis service for local crawling + local inference."""
 
-    crawler_service = PrefixedCrawlerService(get_crawler_service(), prefix="local-")
+    crawler_service = PrefixedCrawlerService(get_local_crawler_service(), prefix="local-")
     scoring_service = DeterministicScoringService()
     report_service = DeterministicReportService()
     artifact_store = get_crawl_artifact_store()
@@ -225,6 +253,7 @@ __all__ = [
     "get_active_analysis_repository",
     "get_crawler_settings",
     "get_crawler_service",
+    "get_local_crawler_service",
     "get_ollama_settings",
     "get_crawl_artifact_store",
     "get_analysis_service",

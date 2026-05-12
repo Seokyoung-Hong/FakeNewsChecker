@@ -11,26 +11,35 @@ from app.services.analysis_service import DeterministicAnalysisService
 from app.services.crawler_service import (
     DeterministicCrawlerService,
     HyperbrowserCrawlerService,
+    LocalBrowserCrawlerService,
     PrefixedCrawlerService,
 )
 from app.services.hyperbrowser_client import HyperbrowserClient
 
 
 class DependencySelectionTests(unittest.TestCase):
+    @staticmethod
+    def _clear_local_analysis_service_cache() -> None:
+        cache_clear = getattr(dependencies.get_local_analysis_service, "cache_clear", None)
+        if callable(cache_clear):
+            cache_clear()
+
     def setUp(self) -> None:
         dependencies.get_crawler_settings.cache_clear()
         dependencies.get_crawl_artifact_store.cache_clear()
         dependencies.get_crawler_service.cache_clear()
+        dependencies.get_local_crawler_service.cache_clear()
         dependencies.get_analysis_service.cache_clear()
-        dependencies.get_local_analysis_service.cache_clear()
+        self._clear_local_analysis_service_cache()
         dependencies.get_ollama_settings.cache_clear()
 
     def tearDown(self) -> None:
         dependencies.get_crawler_settings.cache_clear()
         dependencies.get_crawl_artifact_store.cache_clear()
         dependencies.get_crawler_service.cache_clear()
+        dependencies.get_local_crawler_service.cache_clear()
         dependencies.get_analysis_service.cache_clear()
-        dependencies.get_local_analysis_service.cache_clear()
+        self._clear_local_analysis_service_cache()
         dependencies.get_ollama_settings.cache_clear()
 
     def test_deterministic_provider_is_default(self) -> None:
@@ -77,6 +86,7 @@ class DependencySelectionTests(unittest.TestCase):
         self.assertIsInstance(service._crawler_service, PrefixedCrawlerService)
         prefixed_crawler = cast(PrefixedCrawlerService, service._crawler_service)
         self.assertEqual(prefixed_crawler._prefix, "local-")
+        self.assertIsInstance(prefixed_crawler._inner, LocalBrowserCrawlerService)
         self.assertIsInstance(service._evidence_agent, OllamaAnalysisAgent)
 
 

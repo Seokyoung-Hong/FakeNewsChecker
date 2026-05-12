@@ -12,9 +12,12 @@ RUN pip install --no-cache-dir --disable-pip-version-check \
     "httpx>=0.28.1" \
     "hyperbrowser==0.90.8" \
     "jinja2>=3.1.6" \
+    "mcp>=1.13.0" \
+    "playwright>=1.55.0" \
     "python-dotenv>=1.1.1" \
     "python-multipart>=0.0.20" \
-    "uvicorn>=0.35.0"
+    "uvicorn>=0.35.0" \
+    && playwright install --with-deps chromium
 
 COPY . .
 

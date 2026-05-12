@@ -22,6 +22,17 @@ _ = load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+
+def _as_bool(value: str, *, default: bool) -> bool:
+    normalized = value.strip().lower()
+    if not normalized:
+        return default
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"Boolean environment value is invalid: {value!r}")
+
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 HIVE_API_KEY = os.getenv("HIVE_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -36,6 +47,14 @@ class CrawlerSettings:
     hyperbrowser_wait_until: str = "load"
     hyperbrowser_wait_for_ms: int = 1500
     hyperbrowser_timeout_ms: int = 30000
+    local_crawler_backend: str = "playwright"
+    local_crawler_headless: bool = True
+    local_crawler_wait_until: str = "networkidle"
+    local_crawler_wait_for_ms: int = 1000
+    local_crawler_timeout_ms: int = 45000
+    local_crawler_block_media: bool = True
+    local_crawler_user_agent: str = "FakeNewsChecker/1.0"
+    local_crawler_mcp_enabled: bool = False
     artifact_root_dir: str = "downloaded_news"
 
     @classmethod
@@ -61,6 +80,22 @@ class CrawlerSettings:
 
         hyperbrowser_wait_for_ms = int(env.get("HYPERBROWSER_WAIT_FOR_MS", "1500"))
         hyperbrowser_timeout_ms = int(env.get("HYPERBROWSER_TIMEOUT_MS", "30000"))
+        local_crawler_backend = env.get("LOCAL_CRAWLER_BACKEND", "playwright").strip().lower() or "playwright"
+        if local_crawler_backend not in {"playwright"}:
+            raise ValueError("LOCAL_CRAWLER_BACKEND must be 'playwright'.")
+
+        local_crawler_wait_until = env.get("LOCAL_CRAWLER_WAIT_UNTIL", "networkidle").strip().lower()
+        if local_crawler_wait_until not in {"load", "domcontentloaded", "networkidle", "commit"}:
+            raise ValueError(
+                "LOCAL_CRAWLER_WAIT_UNTIL must be one of 'load', 'domcontentloaded', 'networkidle', or 'commit'."
+            )
+
+        local_crawler_headless = _as_bool(env.get("LOCAL_CRAWLER_HEADLESS", "true"), default=True)
+        local_crawler_block_media = _as_bool(env.get("LOCAL_CRAWLER_BLOCK_MEDIA", "true"), default=True)
+        local_crawler_mcp_enabled = _as_bool(env.get("LOCAL_CRAWLER_MCP_ENABLED", "false"), default=False)
+        local_crawler_wait_for_ms = int(env.get("LOCAL_CRAWLER_WAIT_FOR_MS", "1000"))
+        local_crawler_timeout_ms = int(env.get("LOCAL_CRAWLER_TIMEOUT_MS", "45000"))
+        local_crawler_user_agent = env.get("LOCAL_CRAWLER_USER_AGENT", "FakeNewsChecker/1.0").strip() or "FakeNewsChecker/1.0"
         artifact_root_dir = (
             env.get("ANALYSIS_ARTIFACT_ROOT", "downloaded_news").strip()
             or "downloaded_news"
@@ -80,6 +115,13 @@ class CrawlerSettings:
                 "wait_until": hyperbrowser_wait_until,
                 "wait_for_ms": hyperbrowser_wait_for_ms,
                 "timeout_ms": hyperbrowser_timeout_ms,
+                "local_crawler_backend": local_crawler_backend,
+                "local_crawler_headless": local_crawler_headless,
+                "local_crawler_wait_until": local_crawler_wait_until,
+                "local_crawler_wait_for_ms": local_crawler_wait_for_ms,
+                "local_crawler_timeout_ms": local_crawler_timeout_ms,
+                "local_crawler_block_media": local_crawler_block_media,
+                "local_crawler_mcp_enabled": local_crawler_mcp_enabled,
                 "artifact_root_dir": str(Path(artifact_root_dir)),
             },
         )
@@ -89,6 +131,14 @@ class CrawlerSettings:
             hyperbrowser_wait_until=hyperbrowser_wait_until,
             hyperbrowser_wait_for_ms=hyperbrowser_wait_for_ms,
             hyperbrowser_timeout_ms=hyperbrowser_timeout_ms,
+            local_crawler_backend=local_crawler_backend,
+            local_crawler_headless=local_crawler_headless,
+            local_crawler_wait_until=local_crawler_wait_until,
+            local_crawler_wait_for_ms=local_crawler_wait_for_ms,
+            local_crawler_timeout_ms=local_crawler_timeout_ms,
+            local_crawler_block_media=local_crawler_block_media,
+            local_crawler_user_agent=local_crawler_user_agent,
+            local_crawler_mcp_enabled=local_crawler_mcp_enabled,
             artifact_root_dir=str(Path(artifact_root_dir)),
         )
 
