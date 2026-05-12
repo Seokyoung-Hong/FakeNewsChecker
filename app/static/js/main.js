@@ -6,6 +6,7 @@ const errorSummaryElement = document.getElementById("form-error-summary");
 const loadingOverlay = document.getElementById("loading-overlay");
 const loadingCurrentStep = document.getElementById("loading-current-step");
 const loadingErrorMessage = document.getElementById("loading-error-message");
+const loadingStatusMessage = document.getElementById("loading-status-message");
 const loadingSteps = document.querySelectorAll("#loading-steps li");
 let isSubmitting = false;
 let activePoll = null;
@@ -45,6 +46,15 @@ function setOverlayState(stage, completedStages = []) {
   });
 }
 
+function setOverlayStatusMessage(message) {
+  if (!loadingStatusMessage) {
+    return;
+  }
+
+  const trimmedMessage = message && message.trim().length > 0 ? message.trim() : "";
+  loadingStatusMessage.textContent = trimmedMessage;
+}
+
 function resetOverlay() {
   activePoll = null;
   isSubmitting = false;
@@ -61,6 +71,9 @@ function resetOverlay() {
   }
   if (loadingErrorMessage) {
     loadingErrorMessage.textContent = "";
+  }
+  if (loadingStatusMessage) {
+    loadingStatusMessage.textContent = "";
   }
   loadingSteps.forEach((item) => item.classList.remove("is-active", "is-complete"));
 }
@@ -79,6 +92,7 @@ async function pollAnalysisStatus(statusUrl) {
       throw new Error(statusPayload.detail || "진행 상태를 확인할 수 없습니다.");
     }
 
+    setOverlayStatusMessage(statusPayload.status_message);
     setOverlayState(statusPayload.stage, statusPayload.completed_stages || []);
 
     if (statusPayload.status === "completed" && statusPayload.redirect_url) {
@@ -114,9 +128,10 @@ async function startAnalysisFlow(value) {
     throw new Error(payload.error_message || "분석 시작에 실패했습니다.");
   }
 
-  setOverlayState(payload.stage, payload.completed_stages || []);
-  await pollAnalysisStatus(payload.status_url);
-}
+    setOverlayStatusMessage(payload.status_message);
+    setOverlayState(payload.stage, payload.completed_stages || []);
+    await pollAnalysisStatus(payload.status_url);
+  }
 
 if (form && urlInput && submitButton && errorElement && loadingOverlay) {
   form.addEventListener("submit", (event) => {

@@ -9,11 +9,12 @@
     </div>
 
     <div class="loading-status-panel" aria-live="polite">
-      <p class="loading-status-label">현재 단계</p>
-      <p class="loading-current-step" id="loading-current-step">본문 수집 중</p>
-      <p class="loading-note">진행 단계가 바뀌면 자동으로 표시되고, 완료되면 결과 리포트로 이동합니다.</p>
-      <p class="loading-error-message" id="loading-error-message" role="alert" aria-live="assertive"></p>
-    </div>
+        <p class="loading-status-label">현재 단계</p>
+        <p class="loading-current-step" id="loading-current-step">본문 수집 중</p>
+        <p class="loading-status-message" id="loading-status-message" role="status" aria-live="polite"></p>
+        <p class="loading-note">진행 단계가 바뀌면 자동으로 표시되고, 완료되면 결과 리포트로 이동합니다.</p>
+        <p class="loading-error-message" id="loading-error-message" role="alert" aria-live="assertive"></p>
+      </div>
 
     <ol class="loading-steps" id="loading-steps">
       <li data-stage="body_collection"><span class="step-index">01</span><span>본문 수집 중</span></li>
