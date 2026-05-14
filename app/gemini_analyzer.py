@@ -1,9 +1,10 @@
 import json
 import logging
+from datetime import date
 from importlib import import_module
 from typing import Any
 
-from app.config import GEMINI_API_KEY
+from app.config import GEMINI_API_KEY, GEMINI_MODEL
 from app.prompt_loader import load_prompt
 
 
@@ -16,6 +17,10 @@ _TEXT_CRITERIA_KEYS = (
     "evidence_quality",
     "expression_risk",
 )
+
+
+def _analysis_date() -> str:
+    return date.today().isoformat()
 
 
 def _import_genai() -> Any | None:
@@ -79,7 +84,26 @@ def _legacy_text_result_bridge(payload: dict[str, object]) -> None:
         )
 
 
-def analyze_text(title: str, url: str, text: str) -> dict[str, object]:
+def analyze_text(
+    title: str,
+    url: str,
+    text: str,
+    multimodal_result: dict[str, object] | None = None,
+) -> dict[str, object]:
+    return analyze_text_with_multimodal(
+        title=title,
+        url=url,
+        text=text,
+        multimodal_result=multimodal_result,
+    )
+
+
+def analyze_text_with_multimodal(
+    title: str,
+    url: str,
+    text: str,
+    multimodal_result: dict[str, object] | None,
+) -> dict[str, object]:
     genai_module = _import_genai()
     if not GEMINI_API_KEY or genai_module is None:
         LOGGER.debug("Gemini text analysis fallback used", extra={"event": "gemini_fallback", "has_api_key": bool(GEMINI_API_KEY), "has_module": genai_module is not None})
@@ -92,10 +116,14 @@ def analyze_text(title: str, url: str, text: str) -> dict[str, object]:
         title=title,
         url=url,
         text=text[:3000],
+        analysis_date=_analysis_date(),
+        multimodal_summary=_multimodal_summary(multimodal_result),
+        multimodal_score=_multimodal_score(multimodal_result),
+        multimodal_risk=_multimodal_risk(multimodal_result),
     )
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=GEMINI_MODEL,
         contents=prompt,
         config={
             "temperature": 0.1,
@@ -116,6 +144,7 @@ def analyze_text(title: str, url: str, text: str) -> dict[str, object]:
         raise TypeError("LLM response is not a JSON object")
 
     _legacy_text_result_bridge(payload)
+    _inject_multimodal_result(payload, multimodal_result)
     payload.setdefault(
         "overall_summary",
         {"verdict": "주의 필요", "reasons": [_UNAVAILABLE_TEXT_SUMMARY]},
@@ -125,4 +154,32 @@ def analyze_text(title: str, url: str, text: str) -> dict[str, object]:
     return payload
 
 
-__all__ = ["analyze_text"]
+def _inject_multimodal_result(payload: dict[str, object], multimodal_result: dict[str, object] | None) -> None:
+    if not isinstance(multimodal_result, dict):
+        return
+    if not isinstance(payload.get("multimodal_risk"), dict):
+        payload["multimodal_risk"] = dict(multimodal_result)
+
+
+def _multimodal_summary(multimodal_result: dict[str, object] | None) -> str:
+    if not isinstance(multimodal_result, dict):
+        return "없음"
+    summary = multimodal_result.get("summary")
+    return summary.strip() if isinstance(summary, str) and summary.strip() else "없음"
+
+
+def _multimodal_score(multimodal_result: dict[str, object] | None) -> str:
+    if not isinstance(multimodal_result, dict):
+        return ""
+    score = multimodal_result.get("score")
+    return str(score) if isinstance(score, (int, float)) and not isinstance(score, bool) else ""
+
+
+def _multimodal_risk(multimodal_result: dict[str, object] | None) -> str:
+    if not isinstance(multimodal_result, dict):
+        return ""
+    risk = multimodal_result.get("risk")
+    return risk.strip() if isinstance(risk, str) and risk.strip() else ""
+
+
+__all__ = ["analyze_text", "analyze_text_with_multimodal"]

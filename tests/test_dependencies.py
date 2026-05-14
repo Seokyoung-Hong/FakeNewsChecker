@@ -88,6 +88,8 @@ class DependencySelectionTests(unittest.TestCase):
         self.assertEqual(prefixed_crawler._prefix, "local-")
         self.assertIsInstance(prefixed_crawler._inner, LocalBrowserCrawlerService)
         self.assertIsInstance(service._evidence_agent, OllamaAnalysisAgent)
+        wrapped_agent = cast(OllamaAnalysisAgent, service._evidence_agent)
+        self.assertIsNotNone(wrapped_agent._multimodal_agent)
 
 
 if __name__ == "__main__":

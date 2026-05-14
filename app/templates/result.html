@@ -3,17 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>검증 결과</title>
+    <title>바로봄 리포트</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
   </head>
   <body>
-    <main class="page-shell result-shell">
-      <section class="result-layout" aria-labelledby="result-title">
+    <div class="site-page">
+      {% include '_site_header.html' %}
+      <main class="page-shell result-shell">
+        <section class="result-layout" aria-labelledby="result-title">
         <header class="verdict-hero">
           <div class="verdict-main">
-            <p class="eyebrow">Verification report</p>
-            <h1 id="result-title">무엇을 확인했는지 먼저 보여드립니다.</h1>
+            <p class="eyebrow">바로봄 리포트</p>
+            <h1 id="result-title">바로봄이 무엇을 살펴봤는지 먼저 보여드립니다.</h1>
             <p class="result-summary">{{ result.summary }}</p>
 
             <div class="verdict-signals" aria-label="핵심 결과 요약">
@@ -33,13 +35,13 @@
           </div>
 
           <aside class="score-panel" aria-label="신뢰도 점수 {{ result.score }}점">
-            <p class="section-kicker">Overall score</p>
+            <p class="section-kicker">바로봄 점수</p>
             <div class="score-badge">
               <strong>{{ result.score }}</strong>
               <span>/ 100</span>
             </div>
             <p class="score-caption">{{ result.label }}</p>
-            <a class="primary-link" href="{{ retry_path | default('/', true) }}">다른 링크 검증하기</a>
+            <a class="primary-link" href="{{ retry_path | default('/', true) }}">바로봄에서 다른 링크 보기</a>
           </aside>
         </header>
 
@@ -57,8 +59,8 @@
         <section class="result-section" aria-labelledby="details-title">
           <div class="section-heading-row">
             <div>
-              <p class="section-kicker">Why this result</p>
-              <h2 id="details-title">세부 검증 항목</h2>
+              <p class="section-kicker">바로봄 판단 근거</p>
+              <h2 id="details-title">세부 확인 항목</h2>
             </div>
           </div>
 
@@ -81,8 +83,8 @@
         <section class="result-section" aria-labelledby="source-title">
           <div class="section-heading-row">
             <div>
-              <p class="section-kicker">Source material</p>
-              <h2 id="source-title">원문과 저장 자료</h2>
+              <p class="section-kicker">바로봄 참고 자료</p>
+              <h2 id="source-title">원문과 수집 자료</h2>
             </div>
           </div>
 
@@ -93,7 +95,7 @@
             </div>
           </details>
 
-          {% if result.artifacts %}
+          {% if result.artifacts and not production_mode %}
             <details class="disclosure-block">
               <summary>다운로드 저장 결과 보기</summary>
               <div class="artifact-stack">
@@ -138,7 +140,9 @@
             </details>
           {% endif %}
         </section>
-      </section>
-    </main>
+        </section>
+      </main>
+      {% include '_site_footer.html' %}
+    </div>
   </body>
 </html>

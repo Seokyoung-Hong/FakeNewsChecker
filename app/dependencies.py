@@ -14,11 +14,15 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import CrawlerSettings
 from app.config import OllamaSettings
+from app.config import is_production_mode
 from app.agents.base import AnalysisAgent
+from app.agents.multimodal_agent import MultimodalAnalysisAgent
 from app.artifact_store import CrawlArtifactStore, FilesystemCrawlArtifactStore
 from app.agents.jiwon_agent import JiwonAnalysisAgent
 from app.agents.local_agent import LocalAgent
 from app.agents.ollama_agent import OllamaAnalysisAgent
+from app.gemini_multimodal_analyzer import analyze_multimodal as analyze_gemini_multimodal
+from app.ollama_multimodal_analyzer import analyze_multimodal as analyze_ollama_multimodal
 from app.analyzers.claim_analyzer import ClaimAnalyzer
 from app.analyzers.expression_analyzer import ExpressionAnalyzer
 from app.analyzers.multimodal_analyzer import MultimodalAnalyzer
@@ -47,6 +51,12 @@ def get_templates() -> Jinja2Templates:
     templates_dir = Path(__file__).resolve().parent / "templates"
     logger.debug("Resolved templates directory", extra={"event": "templates_resolved", "directory": str(templates_dir)})
     return Jinja2Templates(directory=str(templates_dir))
+
+
+def get_production_mode() -> bool:
+    """Return whether production-mode UI restrictions are enabled."""
+
+    return is_production_mode()
 
 
 @lru_cache(maxsize=1)
@@ -203,7 +213,15 @@ def get_analysis_service() -> AnalysisService:
     scoring_service = DeterministicScoringService()
     report_service = DeterministicReportService()
     artifact_store = get_crawl_artifact_store()
-    analysis_agent = JiwonAnalysisAgent(fallback_agent=LocalAgent())
+    fallback_agent = LocalAgent()
+    multimodal_agent = MultimodalAnalysisAgent(
+        multimodal_provider=analyze_gemini_multimodal,
+        fallback_agent=fallback_agent,
+    )
+    analysis_agent = JiwonAnalysisAgent(
+        fallback_agent=fallback_agent,
+        multimodal_agent=multimodal_agent,
+    )
     logger.debug("Constructing online analysis service", extra={"event": "analysis_service_construct", "flow": "online"})
     return _build_analysis_service(
         crawler_service=crawler_service,
@@ -221,10 +239,23 @@ def get_local_analysis_service() -> AnalysisService:
     scoring_service = DeterministicScoringService()
     report_service = DeterministicReportService()
     artifact_store = get_crawl_artifact_store()
+    fallback_agent = LocalAgent()
+    ollama_settings = get_ollama_settings()
     analysis_agent = OllamaAnalysisAgent(
-        settings=get_ollama_settings(),
-        fallback_agent=LocalAgent(),
+        settings=ollama_settings,
+        fallback_agent=fallback_agent,
     )
+    multimodal_agent = MultimodalAnalysisAgent(
+        multimodal_provider=lambda crawler_output, hive_result, image_paths: analyze_ollama_multimodal(
+            crawler_output,
+            hive_result,
+            list(image_paths),
+            ollama_settings,
+            on_failover=analysis_agent._report_failover_status,
+        ),
+        fallback_agent=fallback_agent,
+    )
+    analysis_agent._multimodal_agent = multimodal_agent
     logger.debug("Constructing local analysis service", extra={"event": "analysis_service_construct", "flow": "local-model"})
     return _build_analysis_service(
         crawler_service=crawler_service,

@@ -62,6 +62,8 @@ class GeminiAnalyzerTests(unittest.TestCase):
         fake_module = _FakeGenaiModule(response_text)
 
         with patch("app.gemini_analyzer.GEMINI_API_KEY", "secret"), patch(
+            "app.gemini_analyzer.GEMINI_MODEL", "gemini-2.5-pro"
+        ), patch(
             "app.gemini_analyzer._import_genai", return_value=fake_module
         ), self.assertLogs("app.gemini_analyzer", level="DEBUG") as logs:
             result = analyze_text("제목", "https://example.com", "본문")
@@ -72,8 +74,11 @@ class GeminiAnalyzerTests(unittest.TestCase):
         assert fake_module.last_client is not None
         last_call = fake_module.last_client.models.last_call
         assert last_call is not None
+        self.assertEqual(last_call["model"], "gemini-2.5-pro")
         prompt = last_call["contents"]
         self.assertIn("허위정보 위험도 분석", str(prompt))
+        self.assertIn("기준일(분석 기준일)", str(prompt))
+        self.assertIn("지식 컷오프", str(prompt))
 
     def test_bridges_legacy_contract(self) -> None:
         response_text = """```json
@@ -116,6 +121,29 @@ class GeminiAnalyzerTests(unittest.TestCase):
             result = analyze_text("제목", "https://example.com", "본문")
 
         self.assertNotIn("evidence_quality", result)
+
+    def test_injects_multimodal_result_into_text_payload_when_missing(self) -> None:
+        response_text = """{
+          \"overall_summary\": {\"verdict\": \"주의 필요\", \"reasons\": [\"근거 부족\"]},
+          \"source_reliability\": {\"score\": 80, \"summary\": \"출처 보통\"},
+          \"claim_consistency\": {\"score\": 65, \"summary\": \"주장 일부 흔들림\"},
+          \"evidence_quality\": {\"score\": 55, \"summary\": \"근거가 부족함\"},
+          \"expression_risk\": {\"score\": 70, \"summary\": \"표현 위험 보통\"}
+        }"""
+        fake_module = _FakeGenaiModule(response_text)
+
+        with patch("app.gemini_analyzer.GEMINI_API_KEY", "secret"), patch(
+            "app.gemini_analyzer._import_genai", return_value=fake_module
+        ):
+            result = analyze_text(
+                "제목",
+                "https://example.com",
+                "본문",
+                {"score": 61, "summary": "멀티모달 요약", "risk": "high"},
+            )
+
+        multimodal = cast(dict[str, object], result["multimodal_risk"])
+        self.assertEqual(multimodal["score"], 61)
 
 
 if __name__ == "__main__":

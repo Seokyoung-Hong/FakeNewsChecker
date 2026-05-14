@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import date
 from collections.abc import Mapping
 from collections.abc import Callable
 from typing import cast
@@ -12,6 +13,10 @@ from app.prompt_loader import load_prompt
 
 
 logger = logging.getLogger(__name__)
+
+
+def _analysis_date() -> str:
+    return date.today().isoformat()
 
 
 _UNAVAILABLE_TEXT_SUMMARY = "로컬 모델을 사용할 수 없어 분석을 건너뜁니다."
@@ -34,6 +39,7 @@ class _OllamaAnalysisPayload(BaseModel):
     claim_consistency: _OllamaCriterionPayload
     evidence_quality: _OllamaCriterionPayload
     expression_risk: _OllamaCriterionPayload
+    multimodal_risk: _OllamaCriterionPayload | None = None
 
 
 def _fallback_text_result() -> dict[str, object]:
@@ -44,6 +50,7 @@ def _fallback_text_result() -> dict[str, object]:
             "claim_consistency",
             "evidence_quality",
             "expression_risk",
+            "multimodal_risk",
         )
     }
     result["overall_summary"] = {
@@ -86,6 +93,7 @@ def _request_text_analysis(
     title: str,
     url: str,
     text: str,
+    multimodal_result: dict[str, object] | None,
     settings: OllamaSettings,
 ) -> dict[str, object]:
     endpoint = host.rstrip("/") + "/api/chat"
@@ -96,7 +104,7 @@ def _request_text_analysis(
         "options": {"temperature": 0},
         "messages": [
             {"role": "system", "content": load_prompt("structured_json_system")},
-            {"role": "user", "content": _build_prompt(title=title, url=url, text=text)},
+            {"role": "user", "content": _build_prompt(title=title, url=url, text=text, multimodal_result=multimodal_result)},
         ],
     }
 
@@ -110,12 +118,16 @@ def _request_text_analysis(
     return validated.model_dump()
 
 
-def _build_prompt(*, title: str, url: str, text: str) -> str:
+def _build_prompt(*, title: str, url: str, text: str, multimodal_result: dict[str, object] | None) -> str:
     return load_prompt(
         "ollama_text",
         title=title,
         url=url,
         text=text[:3000],
+        analysis_date=_analysis_date(),
+        multimodal_summary=_multimodal_summary(multimodal_result),
+        multimodal_score=_multimodal_score(multimodal_result),
+        multimodal_risk=_multimodal_risk(multimodal_result),
     )
 
 
@@ -125,6 +137,7 @@ def analyze_text(
     text: str,
     settings: OllamaSettings,
     *,
+    multimodal_result: dict[str, object] | None = None,
     on_failover: Callable[[str, str, str], None] | None = None,
 ) -> dict[str, object]:
     host_model_pairs = settings.host_model_pairs
@@ -148,6 +161,7 @@ def analyze_text(
                 title=title,
                 url=url,
                 text=text,
+                multimodal_result=multimodal_result,
                 settings=settings,
             )
         except httpx.HTTPError as exc:
@@ -226,6 +240,7 @@ def analyze_text(
                 "payload_keys": list(payload.keys()),
             },
         )
+        _inject_multimodal_result(payload, multimodal_result)
         return payload
 
     logger.debug(
@@ -236,6 +251,34 @@ def analyze_text(
         },
     )
     return _fallback_text_result()
+
+
+def _inject_multimodal_result(payload: dict[str, object], multimodal_result: dict[str, object] | None) -> None:
+    if not isinstance(multimodal_result, dict):
+        return
+    if not isinstance(payload.get("multimodal_risk"), dict):
+        payload["multimodal_risk"] = dict(multimodal_result)
+
+
+def _multimodal_summary(multimodal_result: dict[str, object] | None) -> str:
+    if not isinstance(multimodal_result, dict):
+        return "없음"
+    summary = multimodal_result.get("summary")
+    return summary.strip() if isinstance(summary, str) and summary.strip() else "없음"
+
+
+def _multimodal_score(multimodal_result: dict[str, object] | None) -> str:
+    if not isinstance(multimodal_result, dict):
+        return ""
+    score = multimodal_result.get("score")
+    return str(score) if isinstance(score, (int, float)) and not isinstance(score, bool) else ""
+
+
+def _multimodal_risk(multimodal_result: dict[str, object] | None) -> str:
+    if not isinstance(multimodal_result, dict):
+        return ""
+    risk = multimodal_result.get("risk")
+    return risk.strip() if isinstance(risk, str) and risk.strip() else ""
 
 
 __all__ = ["analyze_text"]

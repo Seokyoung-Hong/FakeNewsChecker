@@ -6,6 +6,7 @@ import logging
 from collections.abc import Callable
 from app.agents.base import AnalysisAgent
 from app.agents.local_agent import LocalAgent
+from app.agents.multimodal_agent import MultimodalAnalysisAgent
 from app.config import OllamaSettings
 from app.ollama_analyzer import analyze_text
 from app.schemas import AnalysisCriterionResult, CrawlerOutput
@@ -24,6 +25,7 @@ class OllamaAnalysisAgent(AnalysisAgent):
         "claim_consistency",
         "evidence_quality",
         "expression_risk",
+        "multimodal_risk",
     )
     _TEXT_UNAVAILABLE_MESSAGE = "로컬 모델을 사용할 수 없어 분석을 건너뜁니다."
 
@@ -32,9 +34,11 @@ class OllamaAnalysisAgent(AnalysisAgent):
         settings: OllamaSettings,
         fallback_agent: AnalysisAgent | None = None,
         status_message_callback: Callable[[str], None] | None = None,
+        multimodal_agent: MultimodalAnalysisAgent | None = None,
     ) -> None:
         self._settings = settings
         self._fallback_agent = fallback_agent or LocalAgent()
+        self._multimodal_agent = multimodal_agent
         self._text_cache: dict[str, dict[str, object]] = {}
         self._fallback_analysis_ids: set[str] = set()
         self._status_message_callback = status_message_callback
@@ -42,6 +46,8 @@ class OllamaAnalysisAgent(AnalysisAgent):
     def reset_cache(self) -> None:
         self._text_cache.clear()
         self._fallback_analysis_ids.clear()
+        if self._multimodal_agent is not None:
+            self._multimodal_agent.reset_cache()
         logger.debug("Reset Ollama agent cache", extra={"event": "ollama_agent_reset_cache"})
 
     def set_status_message_callback(
@@ -78,7 +84,7 @@ class OllamaAnalysisAgent(AnalysisAgent):
         return f"LLM 요약 의견: {verdict.strip()}"
 
     def analyze(self, crawler_output: CrawlerOutput, criterion: str) -> AnalysisCriterionResult:
-        if criterion == "multimodal_risk":
+        if criterion == "multimodal_risk" and self._multimodal_agent is None:
             logger.debug("Ollama agent delegates multimodal risk to fallback agent", extra={"event": "ollama_agent_multimodal_fallback", "analysis_id": crawler_output.analysis_id})
             return self._fallback_agent.analyze(crawler_output, criterion)
 
@@ -102,10 +108,13 @@ class OllamaAnalysisAgent(AnalysisAgent):
             logger.debug("Ollama agent text cache hit", extra={"event": "ollama_agent_cache_hit", "analysis_id": analysis_id})
             return cached
 
+        multimodal_result = self._multimodal_agent.analyze_payload(crawler_output) if self._multimodal_agent is not None else None
+
         result = analyze_text(
             title=crawler_output.title,
             url=str(crawler_output.url),
             text=crawler_output.content,
+            multimodal_result=multimodal_result,
             settings=self._settings,
             on_failover=self._report_failover_status,
         )
@@ -175,6 +184,8 @@ class OllamaAnalysisAgent(AnalysisAgent):
     def _is_text_unavailable_result(cls, result: dict[str, object]) -> bool:
         for key in cls._TEXT_CRITERIA:
             payload = result.get(key)
+            if key == "multimodal_risk" and payload is None:
+                continue
             if not isinstance(payload, dict):
                 return False
             payload_dict: dict[str, object] = payload

@@ -15,6 +15,7 @@ from app.dependencies import (
     get_active_analysis_service,
     get_active_local_analysis_service,
     get_crawl_artifact_store,
+    get_production_mode,
     get_templates,
 )
 from app.artifact_store import CrawlArtifactStore
@@ -49,7 +50,7 @@ def _run_analysis_job(
         analysis_id = repository.create(result)
     except Exception as exc:
         logger.exception("Background analysis job failed", extra={"event": "analysis_job_failed", "job_id": job_id, "exception_class": type(exc).__name__})
-        progress_store.fail(job_id, "분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
+        progress_store.fail(job_id, "바로봄 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
         return
 
     progress_store.complete(job_id, analysis_id)
@@ -97,6 +98,8 @@ def _handle_analysis_submission(
                 "request": request,
                 "submitted_url": submitted_url,
                 "retry_path": retry_path,
+                "error_title": "바로봄이 이 링크를 끝까지 확인하지 못했습니다.",
+                "error_message": "입력한 URL을 처리하는 중 문제가 발생했습니다. 잠시 후 바로봄에서 다시 시도해 주세요.",
             },
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
@@ -123,7 +126,7 @@ def _start_analysis_submission(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={
                 "error_code": error_code,
-                "error_message": "검증할 URL을 입력해 주세요." if error_code == "missing_url" else "올바른 URL 형식으로 입력해 주세요.",
+                "error_message": "바로봄으로 확인할 URL을 입력해 주세요." if error_code == "missing_url" else "바로봄에서 확인할 수 있도록 올바른 URL 형식으로 입력해 주세요.",
             },
         )
 
@@ -257,6 +260,7 @@ def analysis_result_page(
     analysis_id: str,
     templates: Annotated[Jinja2Templates, Depends(get_templates)],
     repository: Annotated[AnalysisResultRepository, Depends(get_active_analysis_repository)],
+    production_mode: Annotated[bool, Depends(get_production_mode)],
 ) -> HTMLResponse:
     """Render a stored analysis result page or a not-found state."""
 
@@ -272,8 +276,8 @@ def analysis_result_page(
                 "request": request,
                 "submitted_url": "",
                 "retry_path": retry_path,
-                "error_title": "분석 결과를 찾을 수 없습니다.",
-                "error_message": "요청한 분석 ID가 없거나 저장소가 초기화되었습니다. 홈으로 돌아가 다시 URL을 제출해 주세요.",
+                "error_title": "바로봄 리포트를 찾을 수 없습니다.",
+                "error_message": "요청한 분석 ID가 없거나 저장소가 초기화되었습니다. 바로봄 홈으로 돌아가 다시 URL을 제출해 주세요.",
             },
             status_code=status.HTTP_404_NOT_FOUND,
         )
@@ -287,5 +291,6 @@ def analysis_result_page(
             "request": request,
             "result": result,
             "retry_path": retry_path,
+            "production_mode": production_mode,
         },
     )

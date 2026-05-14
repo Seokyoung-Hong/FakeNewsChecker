@@ -13,11 +13,12 @@ from app.dependencies import (
     get_active_analysis_service,
     get_active_local_analysis_service,
     get_crawl_artifact_store,
+    get_production_mode,
 )
 from app.main import app
 from app.progress_store import progress_store
 from app.repositories import InMemoryAnalysisResultRepository
-from app.schemas import AnalysisResult, ReportDetail, URLSubmission
+from app.schemas import AnalysisResult, ArtifactFile, DownloadArtifactManifest, ReportDetail, URLSubmission
 
 
 class _FakeAnalysisService:
@@ -102,9 +103,10 @@ class AnalysisSubmissionRouteTests(unittest.TestCase):
         response = client.get("/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("검증하고 싶은 뉴스", response.text)
-        self.assertIn("검증하기", response.text)
-        self.assertIn("진행 단계가 바뀌면", response.text)
+        self.assertIn("바로봄", response.text)
+        self.assertIn("아라가온", response.text)
+        self.assertIn("바로봄 시작하기", response.text)
+        self.assertIn("바로봄 리포트로 이동합니다.", response.text)
         self.assertIn('id="form-error-summary"', response.text)
         self.assertIn('id="loading-error-message"', response.text)
 
@@ -156,8 +158,8 @@ class AnalysisSubmissionRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('action="/local-model"', response.text)
-        self.assertIn("링크를 입력하고 확인하세요", response.text)
-        self.assertIn("local search", response.text.lower())
+        self.assertIn("바로봄 로컬 분석 시작하기", response.text)
+        self.assertIn("바로봄 로컬 검색", response.text)
 
     def test_local_search_page_uses_local_form_action(self) -> None:
         client = TestClient(app)
@@ -165,7 +167,7 @@ class AnalysisSubmissionRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('action="/local-search"', response.text)
-        self.assertIn("로컬 검색", response.text)
+        self.assertIn("바로봄 로컬 검색", response.text)
 
     def test_local_result_page_uses_local_retry_path(self) -> None:
         repository = InMemoryAnalysisResultRepository()
@@ -198,9 +200,87 @@ class AnalysisSubmissionRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('href="/local-search"', response.text)
-        self.assertIn("무엇을 확인했는지 먼저 보여드립니다.", response.text)
-        self.assertIn("세부 검증 항목", response.text)
-        self.assertIn("원문과 저장 자료", response.text)
+        self.assertIn("바로봄이 무엇을 살펴봤는지 먼저 보여드립니다.", response.text)
+        self.assertIn("세부 확인 항목", response.text)
+        self.assertIn("원문과 수집 자료", response.text)
+        self.assertIn("아라가온", response.text)
+
+    def test_result_page_hides_artifact_ui_in_production_mode(self) -> None:
+        repository = InMemoryAnalysisResultRepository()
+        repository.create(
+            AnalysisResult(
+                analysis_id="analysis-1",
+                url=URLSubmission.model_validate({"url": "https://example.com/article"}).url,
+                title="기사 제목",
+                original_content="본문",
+                score=80,
+                label="신뢰 가능",
+                summary="요약",
+                details=[
+                    ReportDetail(
+                        key="multimodal_risk",
+                        label="멀티모달 조작 위험도",
+                        score=64,
+                        summary="이미지와 본문 사이에 불일치가 일부 보입니다.",
+                        risk="medium",
+                    )
+                ],
+                artifacts=DownloadArtifactManifest(
+                    storage_directory="downloaded_news/analysis-1",
+                    files=[ArtifactFile(label="원문 HTML", relative_path="article.html", size_bytes=128)],
+                ),
+            )
+        )
+        app.dependency_overrides[get_active_analysis_repository] = lambda: repository
+        app.dependency_overrides[get_production_mode] = lambda: True
+        try:
+            client = TestClient(app)
+            response = client.get("/analysis/analysis-1")
+        finally:
+            app.dependency_overrides.clear()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("다운로드 저장 결과 보기", response.text)
+        self.assertNotIn("멀티모달 분석 결과", response.text)
+
+    def test_result_page_shows_artifact_ui_when_not_production(self) -> None:
+        repository = InMemoryAnalysisResultRepository()
+        repository.create(
+            AnalysisResult(
+                analysis_id="analysis-1",
+                url=URLSubmission.model_validate({"url": "https://example.com/article"}).url,
+                title="기사 제목",
+                original_content="본문",
+                score=80,
+                label="신뢰 가능",
+                summary="요약",
+                details=[
+                    ReportDetail(
+                        key="multimodal_risk",
+                        label="멀티모달 조작 위험도",
+                        score=64,
+                        summary="이미지와 본문 사이에 불일치가 일부 보입니다.",
+                        risk="medium",
+                    )
+                ],
+                artifacts=DownloadArtifactManifest(
+                    storage_directory="downloaded_news/analysis-1",
+                    files=[ArtifactFile(label="원문 HTML", relative_path="article.html", size_bytes=128)],
+                ),
+            )
+        )
+        app.dependency_overrides[get_active_analysis_repository] = lambda: repository
+        app.dependency_overrides[get_production_mode] = lambda: False
+        try:
+            client = TestClient(app)
+            response = client.get("/analysis/analysis-1")
+        finally:
+            app.dependency_overrides.clear()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("다운로드 저장 결과 보기", response.text)
+        self.assertIn("저장 폴더: downloaded_news/analysis-1", response.text)
+        self.assertIn("원문 HTML", response.text)
 
     def test_start_analysis_returns_progress_payload_and_status(self) -> None:
         repository = InMemoryAnalysisResultRepository()
@@ -266,8 +346,8 @@ class AnalysisSubmissionRouteTests(unittest.TestCase):
         response = client.get("/analysis/missing-id")
 
         self.assertEqual(response.status_code, 404)
-        self.assertIn("분석 결과를 찾을 수 없습니다.", response.text)
-        self.assertIn("이전 화면으로 돌아가 다시 시도하기", response.text)
+        self.assertIn("바로봄 리포트를 찾을 수 없습니다.", response.text)
+        self.assertIn("바로봄으로 돌아가 다시 시도하기", response.text)
 
 
 class AnalysisArtifactRouteTests(unittest.TestCase):

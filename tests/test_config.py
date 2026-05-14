@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from app.config import CrawlerSettings, OllamaSettings
+from app.config import CrawlerSettings, OllamaSettings, is_production_mode
 
 
 class CrawlerSettingsTests(unittest.TestCase):
@@ -140,6 +140,17 @@ class OllamaSettingsTests(unittest.TestCase):
                     "OLLAMA_FALLBACK_MODELS": "llama-main, , llama-two",
                 }
             )
+
+
+class ProductionModeTests(unittest.TestCase):
+    def test_is_production_mode_defaults_to_true(self) -> None:
+        self.assertTrue(is_production_mode({}))
+
+    def test_is_production_mode_reads_lowercase_env_flag(self) -> None:
+        self.assertFalse(is_production_mode({"production_mode": "false"}))
+
+    def test_is_production_mode_reads_uppercase_env_flag(self) -> None:
+        self.assertFalse(is_production_mode({"PRODUCTION_MODE": "false"}))
 
 
 if __name__ == "__main__":

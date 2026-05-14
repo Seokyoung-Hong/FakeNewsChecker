@@ -11,7 +11,9 @@ from app.schemas import (
     AnalysisOutput,
     AnalysisResult,
     CrawlerOutput,
+    ArtifactFile,
     DownloadArtifactManifest,
+    DownloadedImage,
     ReportDetail,
     ReportOutput,
     ScoringOutput,
@@ -143,6 +145,48 @@ class DeterministicAnalysisServiceTests(unittest.TestCase):
         assert artifacts is not None
         self.assertEqual(artifacts.storage_directory, "downloaded_news/analysis-1")
         self.assertIsNotNone(artifact_store.persisted)
+
+    def test_run_attaches_persisted_image_paths_to_runtime_metadata(self) -> None:
+        class _ImageArtifactStore(_FakeArtifactStore):
+            def persist(self, crawler_output: CrawlerOutput) -> DownloadArtifactManifest:
+                self.persisted = crawler_output
+                return DownloadArtifactManifest(
+                    storage_directory="downloaded_news/analysis-1",
+                    images=[
+                        DownloadedImage(
+                            source_url="https://cdn.example.com/image.jpg",
+                            status="downloaded",
+                            local_file=ArtifactFile(
+                                label="저장 이미지 1",
+                                relative_path="images/image-001.jpg",
+                                size_bytes=10,
+                                media_type="image/jpeg",
+                            ),
+                        )
+                    ],
+                )
+
+        artifact_store = _ImageArtifactStore()
+        service = DeterministicAnalysisService(
+            crawler_service=_FakeCrawlerService(),
+            analyzers=[
+                _FakeAnalyzer("source_reliability"),
+                _FakeAnalyzer("claim_consistency"),
+                _FakeAnalyzer("expression_risk"),
+                _FakeAnalyzer("multimodal_risk"),
+            ],
+            scoring_service=_FakeScoringService(),
+            report_service=_FakeReportService(),
+            artifact_store=artifact_store,
+        )
+
+        _ = service.run(URLSubmission.model_validate({"url": "https://example.com/article"}))
+
+        assert artifact_store.persisted is not None
+        self.assertEqual(
+            artifact_store.persisted.metadata["persisted_image_paths"],
+            ["downloaded_news/analysis-1/images/image-001.jpg"],
+        )
 
     def test_run_resets_cache_on_shared_agent_once(self) -> None:
         artifact_store = _FakeArtifactStore()

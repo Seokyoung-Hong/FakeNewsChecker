@@ -36,6 +36,7 @@ def _as_bool(value: str, *, default: bool) -> bool:
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 HIVE_API_KEY = os.getenv("HIVE_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 
 
 @dataclass(frozen=True)
@@ -233,10 +234,22 @@ class OllamaSettings:
         )
 
 
+def is_production_mode(environ: Mapping[str, str] | None = None) -> bool:
+    """Return whether production-mode UI restrictions should apply."""
+
+    env = os.environ if environ is None else environ
+    raw_value = env.get("production_mode")
+    if raw_value is None:
+        raw_value = env.get("PRODUCTION_MODE", "true")
+    return _as_bool(raw_value, default=True)
+
+
 __all__ = [
     "ANTHROPIC_API_KEY",
     "HIVE_API_KEY",
     "GEMINI_API_KEY",
+    "GEMINI_MODEL",
     "CrawlerSettings",
     "OllamaSettings",
+    "is_production_mode",
 ]

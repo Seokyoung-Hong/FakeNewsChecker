@@ -7,6 +7,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 import logging
+from pathlib import Path
 
 from app.agents.base import AnalysisAgent
 from app.agents.local_agent import LocalAgent
@@ -22,6 +23,7 @@ from app.schemas import (
     AnalysisOutput,
     AnalysisResult,
     CrawlerOutput,
+    DownloadedImage,
     DownloadArtifactManifest,
     URLSubmission,
 )
@@ -143,8 +145,19 @@ class DeterministicAnalysisService(AnalysisService):
             logger.debug("Artifact persistence skipped", extra={"event": "artifact_persist_skipped"})
             return None
         manifest = self._artifact_store.persist(crawler_output)
+        crawler_output.metadata["artifact_storage_directory"] = manifest.storage_directory
+        crawler_output.metadata["persisted_image_paths"] = self._persisted_image_paths(manifest)
         logger.debug("Artifact persistence completed", extra={"event": "artifact_persist_done", "analysis_id": crawler_output.analysis_id, "file_count": len(manifest.files), "image_count": len(manifest.images)})
         return manifest
+
+    @staticmethod
+    def _persisted_image_paths(manifest: DownloadArtifactManifest) -> list[str]:
+        persisted: list[str] = []
+        for image in manifest.images:
+            if image.status != "downloaded" or image.local_file is None:
+                continue
+            persisted.append((Path(manifest.storage_directory) / image.local_file.relative_path).as_posix())
+        return persisted
 
     def _run_analysis(
         self,

@@ -23,10 +23,20 @@ class PromptLoaderTests(unittest.TestCase):
     def test_uses_fallback_prompt_when_file_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch.dict(os.environ, {"PROMPT_DIR": temp_dir}):
-                rendered = load_prompt("ollama_text", title="제목", url="url", text="본문")
+                rendered = load_prompt(
+                    "ollama_text",
+                    title="제목",
+                    url="url",
+                    text="본문",
+                    analysis_date="2026-01-01",
+                    multimodal_summary="없음",
+                    multimodal_score="",
+                    multimodal_risk="",
+                )
 
         self.assertIn("제목", rendered)
         self.assertIn("url", rendered)
+        self.assertIn("2026-01-01", rendered)
 
     def test_raises_for_missing_unknown_prompt(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -3,35 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>링크 검증</title>
+    <title>바로봄 | 올바르게 보자</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
   </head>
   <body>
-    <main class="page-shell landing-shell">
-      <section class="hero-panel" aria-labelledby="page-title">
+    <div class="site-page">
+      {% include '_site_header.html' %}
+      <main class="page-shell landing-shell">
+        <section class="hero-panel" aria-labelledby="page-title">
         <div class="hero-copy-block">
-          <p class="eyebrow">{{ mode_badge | default('Link Verification', true) }}</p>
-          <h1 id="page-title">{{ page_title | default('검증하고 싶은 뉴스·게시글 URL을 입력하세요.', true) }}</h1>
+          <p class="eyebrow">{{ mode_badge | default('바로봄', true) }}</p>
+          <h1 id="page-title">{{ page_title | default('바로봄으로 뉴스·게시글 링크를 올바르게 살펴보세요.', true) }}</h1>
           <p class="intro-copy">
-            {{ intro_copy | default('뉴스 기사, SNS 게시글, 블로그 링크를 붙여 넣으면 이후 단계에서 신뢰도 리포트를 확인할 수 있습니다.', true) }}
+            {{ intro_copy | default('뉴스 기사, SNS 게시글, 블로그 링크를 붙여 넣으면 바로봄이 핵심 근거를 정리한 신뢰도 리포트를 보여드립니다.', true) }}
           </p>
         </div>
 
         <div class="entry-grid entry-grid-single">
-          <section class="submission-panel" aria-labelledby="submission-title">
-            <div class="panel-heading-row">
-              <div>
-                <h2 id="submission-title">링크를 입력하고 확인하세요</h2>
-              </div>
-            </div>
-
+          <section class="submission-panel">
             <form
               class="url-form"
               id="analysis-form"
               action="{{ analysis_action | default('/analysis', true) }}"
               data-start-action="{{ (analysis_action | default('/analysis', true)) ~ '/start' }}"
-              data-submit-label="{{ submit_label | default('검증하기', true) }}"
+               data-submit-label="{{ submit_label | default('바로봄 시작하기', true) }}"
               method="post"
               novalidate
             >
@@ -46,7 +42,7 @@
                 value="{{ submitted_url | default('', true) }}"
                 required
               />
-              <button id="submit-button" type="submit">{{ submit_label | default('검증하기', true) }}</button>
+              <button id="submit-button" type="submit">{{ submit_label | default('바로봄 시작하기', true) }}</button>
               <div class="form-feedback" id="form-feedback">
                 <p class="form-error-summary{% if form_error %} is-visible{% endif %}" id="form-error-summary" role="alert" aria-live="assertive">{{ form_error | default('', true) }}</p>
                 <p class="form-error{% if form_error %} is-visible{% endif %}" id="form-error" role="alert" aria-live="polite">{{ form_error | default('', true) }}</p>
@@ -54,8 +50,10 @@
             </form>
           </section>
         </div>
-      </section>
-    </main>
+        </section>
+      </main>
+      {% include '_site_footer.html' %}
+    </div>
 
     {% include 'loading.html' %}
 

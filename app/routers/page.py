@@ -14,8 +14,8 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 _FORM_ERRORS = {
-    "missing_url": "검증할 URL을 입력해 주세요.",
-    "invalid_url": "올바른 URL 형식으로 입력해 주세요.",
+    "missing_url": "바로봄으로 확인할 URL을 입력해 주세요.",
+    "invalid_url": "바로봄에서 확인할 수 있도록 올바른 URL 형식으로 입력해 주세요.",
 }
 
 
@@ -74,10 +74,10 @@ def index(
         submitted_url=url,
         error=error,
         analysis_action="/analysis",
-        submit_label="검증하기",
-        page_title="검증하고 싶은 뉴스·게시글 URL을 입력하세요.",
-        intro_copy="뉴스 기사, SNS 게시글, 블로그 링크를 붙여 넣으면 이후 단계에서 신뢰도 리포트를 확인할 수 있습니다.",
-        mode_badge="Online Model",
+        submit_label="바로봄 시작하기",
+        page_title="바로봄으로 뉴스·게시글 링크를 올바르게 살펴보세요.",
+        intro_copy="뉴스 기사, SNS 게시글, 블로그 링크를 붙여 넣으면 바로봄이 핵심 근거를 정리한 신뢰도 리포트를 보여드립니다.",
+        mode_badge="바로봄 온라인 분석",
     )
 
 
@@ -103,11 +103,11 @@ def local_model_index(
         submitted_url=url,
         error=error,
         analysis_action=request.url.path,
-        submit_label="로컬 검색으로 검증하기",
-        page_title=f"로컬 검색 + 로컬 모델({ollama_settings.model})로 분석할 URL을 입력하세요.",
+        submit_label="바로봄 로컬 분석 시작하기",
+        page_title=f"바로봄 로컬 검색 + 로컬 모델({ollama_settings.model})로 확인할 URL을 입력하세요.",
         intro_copy=(
             f"이 경로는 Playwright 기반 로컬 브라우저 크롤링으로 본문을 수집하고, "
-            f"서버에서 실행 중인 Ollama의 {ollama_settings.model} 모델로 텍스트 분석을 수행합니다."
+            f"서버에서 실행 중인 Ollama의 {ollama_settings.model} 모델을 활용해 바로봄 방식으로 텍스트를 살펴봅니다."
         ),
-        mode_badge="Local Search",
+        mode_badge="바로봄 로컬 검색",
     )

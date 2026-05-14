@@ -84,7 +84,7 @@ def create_app() -> FastAPI:
         async with mcp_server.session_manager.run():
             yield
 
-    app = FastAPI(title="Fake News Verification API", lifespan=lifespan)
+    app = FastAPI(title="바로봄 API", lifespan=lifespan)
     static_dir = Path(__file__).resolve().parent / "static"
 
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")

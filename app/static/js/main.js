@@ -10,7 +10,7 @@ const loadingStatusMessage = document.getElementById("loading-status-message");
 const loadingSteps = document.querySelectorAll("#loading-steps li");
 let isSubmitting = false;
 let activePoll = null;
-const defaultSubmitLabel = form?.dataset.submitLabel || "검증하기";
+const defaultSubmitLabel = form?.dataset.submitLabel || "바로봄 시작하기";
 
 function setFormError(message) {
   if (errorElement) {
@@ -28,10 +28,10 @@ function setOverlayState(stage, completedStages = []) {
   if (loadingCurrentStep) {
     const active = Array.from(loadingSteps).find((item) => item.dataset.stage === stage);
     if (!active) {
-      loadingCurrentStep.textContent = "분석 준비 중";
+      loadingCurrentStep.textContent = "바로봄 준비 중";
     } else {
       const stepLabel = active.querySelector("span:last-child")?.textContent?.trim() || "";
-      loadingCurrentStep.textContent = stepLabel || "분석 준비 중";
+      loadingCurrentStep.textContent = stepLabel || "바로봄 준비 중";
     }
   }
 
@@ -67,7 +67,7 @@ function resetOverlay() {
     loadingOverlay.setAttribute("aria-hidden", "true");
   }
   if (loadingCurrentStep) {
-    loadingCurrentStep.textContent = "분석 준비 중";
+    loadingCurrentStep.textContent = "바로봄 준비 중";
   }
   if (loadingErrorMessage) {
     loadingErrorMessage.textContent = "";
@@ -89,7 +89,7 @@ async function pollAnalysisStatus(statusUrl) {
     const statusResponse = await fetch(statusUrl, { method: "GET" });
     const statusPayload = await statusResponse.json();
     if (!statusResponse.ok) {
-      throw new Error(statusPayload.detail || "진행 상태를 확인할 수 없습니다.");
+      throw new Error(statusPayload.detail || "바로봄 진행 상태를 확인할 수 없습니다.");
     }
 
     setOverlayStatusMessage(statusPayload.status_message);
@@ -102,7 +102,7 @@ async function pollAnalysisStatus(statusUrl) {
     }
 
     if (statusPayload.status === "failed") {
-      throw new Error(statusPayload.error_message || "분석 중 오류가 발생했습니다.");
+      throw new Error(statusPayload.error_message || "바로봄 분석 중 오류가 발생했습니다.");
     }
 
     activePoll = statusUrl;
@@ -125,7 +125,7 @@ async function startAnalysisFlow(value) {
 
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload.error_message || "분석 시작에 실패했습니다.");
+    throw new Error(payload.error_message || "바로봄 분석 시작에 실패했습니다.");
   }
 
     setOverlayStatusMessage(payload.status_message);
@@ -142,20 +142,20 @@ if (form && urlInput && submitButton && errorElement && loadingOverlay) {
     const value = urlInput.value.trim();
 
     if (!value) {
-      setFormError("검증할 URL을 입력해 주세요.");
+      setFormError("바로봄으로 확인할 URL을 입력해 주세요.");
       urlInput.focus();
       event.preventDefault();
       return;
     }
 
     if (!urlInput.checkValidity()) {
-      setFormError("올바른 URL 형식으로 입력해 주세요.");
+      setFormError("바로봄에서 확인할 수 있도록 올바른 URL 형식으로 입력해 주세요.");
       return;
     }
 
     setFormError("");
     submitButton.disabled = true;
-    submitButton.textContent = "검증 준비 중";
+    submitButton.textContent = "바로봄 준비 중";
     loadingOverlay.classList.add("is-visible");
     loadingOverlay.setAttribute("aria-hidden", "false");
     setOverlayState("body_collection", []);
@@ -169,7 +169,7 @@ if (form && urlInput && submitButton && errorElement && loadingOverlay) {
           try {
             await startAnalysisFlow(value);
           } catch (error) {
-            const message = error instanceof Error ? error.message : "분석 시작에 실패했습니다.";
+            const message = error instanceof Error ? error.message : "바로봄 분석 시작에 실패했습니다.";
             if (loadingErrorMessage) {
               loadingErrorMessage.textContent = message;
             }
